@@ -121,6 +121,10 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 #toast.err{background:var(--err)}
 body.sheet-open #toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 96px)}
 .big:disabled{opacity:.45;filter:saturate(.4);pointer-events:none}
+/* routescherm: Annuleren/Start altijd zichtbaar onderin, de rest scrolt (liggend scherm, lange meldingen) */
+#rsbtns{position:sticky;bottom:calc(-1 * (var(--sb) + 16px));margin:0 -16px calc(-1 * (var(--sb) + 16px));padding:10px 16px calc(var(--sb) + 16px);background:var(--card);z-index:2}
+body:not(.dark) #rsbtns{background:linear-gradient(rgba(247,244,255,0),rgb(247,244,255) 10px)}
+body.dark #rsbtns{background:linear-gradient(rgba(30,26,62,0),rgb(30,26,62) 10px)}
 .alt.retry{text-align:center}
 #scrim{position:fixed;inset:0;background:rgba(20,16,60,.25);z-index:7}
 
@@ -504,7 +508,7 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
     <button class="small" id="favbtn">☆ Bewaren</button>
     <span id="favpick" hidden><button class="small" data-fav="home">Thuis</button><button class="small" data-fav="work">Werk</button><button class="small" data-fav="list">Favoriet</button></span>
   </div>
-  <div class="row">
+  <div class="row" id="rsbtns">
     <button class="big ghost" id="cancelroute">Annuleren</button>
     <button class="big go" id="startnav">Start</button>
   </div>
@@ -523,6 +527,9 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
   <div class="set" style="display:block"><span>3D-kaart (Mapbox)<small id="mapboxinfo">Met een gratis Mapbox-sleutel: echte 3D-bomen, belichte gebouwen en monumenten. Zonder sleutel: de gratis open kaart.</small></span>
     <input class="key" id="k-mapbox" placeholder="Mapbox-sleutel (pk.…)" autocomplete="off" spellcheck="false">
     <button class="small" id="savemapbox" style="margin-top:8px">Opslaan</button></div>
+  <label class="set"><span>Laadpunten op de kaart<small>Laadpalen uit OpenStreetMap, zichtbaar als je inzoomt. Tik erop voor stekkers en vermogen.</small></span><input type="checkbox" class="sw" id="s-chargers"></label>
+  <label class="set"><span>Regen op je route<small>Waarschuwt als het gaat regenen waar je straks rijdt (Buienradar).</small></span><input type="checkbox" class="sw" id="s-rain"></label>
+  <label class="set"><span>Milieuzones<small>Laat zien of je route door een milieuzone gaat en waarschuwt vlak ervoor.</small></span><input type="checkbox" class="sw" id="s-zones"></label>
   <label class="set"><span>Verkeerslichten op de kaart<small>Stoplichten uit OpenStreetMap, zichtbaar als je inzoomt.</small></span><input type="checkbox" class="sw" id="s-signals"></label>
   <label class="set"><span>Drukte op de kaart<small>Wegen kleuren groen, oranje of rood naar hoe druk het is (TomTom of HERE).</small></span><input type="checkbox" class="sw" id="s-flow"></label>
   <div class="set" style="display:block"><span>Live verkeer (TomTom / HERE)<small id="liveinfo">Vul een gratis sleutel in voor live files, ongevallen en drukte op de kaart.</small></span>

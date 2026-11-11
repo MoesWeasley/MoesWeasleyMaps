@@ -36,12 +36,14 @@ def gemini(r):
         if n == "start_route": return text("Op weg naar %s!" % res.get("naar"))
         if n == "instelling": return text("Geluid staat nu uit.")
         if n == "stop_route": return text("Route gestopt.")
+        if n == "meld_flitser": return text("Gemeld: %s!" % res.get("gemeld"))
         return text("Klaar.")
     q = p0.get("text", "").lower()
     if "hoe laat" in q: return call("rit_info", {})
     if "tankstation" in q: return call("zoek_plek", {"soort": "tankstation", "waar": "hier"})
     if "erheen" in q: return call("start_route", {"nummer": 1})
     if "geluid uit" in q: return call("instelling", {"naam": "geluid", "aan": False})
+    if "flitser" in q: return call("meld_flitser", {"soort": "mobiel"})
     if "stop" in q: return call("stop_route", {})
     return text("Hoi! Ik ben **Smiesh**, je vrolijke wezeltje.")
 
@@ -73,6 +75,25 @@ def handler(r):
         return r.fulfill(json={"features": [p for p in PLACES if q[:3] in p["properties"]["name"].lower()]})
     if 'generativelanguage.googleapis.com' in u:
         return gemini(r)
+    if 'brugopeningen' in u:
+        import gzip, datetime as dt
+        now = dt.datetime.now(dt.timezone.utc); f = lambda x: x.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        xmlb = ('<?xml version="1.0"?><d2:payload xmlns:d2="http://datex2.eu/schema/3/messageContainer" xmlns:sit="http://datex2.eu/schema/3/situation" xmlns:com="http://datex2.eu/schema/3/common" xmlns:loc="http://datex2.eu/schema/3/locationReferencing">'
+          '<sit:situation id="b1"><sit:situationRecord id="BRUG1"><com:probabilityOfOccurrence>certain</com:probabilityOfOccurrence><com:validity><com:validityTimeSpecification><com:overallStartTime>%s</com:overallStartTime><com:overallEndTime>%s</com:overallEndTime></com:validityTimeSpecification></com:validity>'
+          '<sit:locationReference><loc:pointByCoordinates><loc:pointCoordinates><loc:latitude>52.3790</loc:latitude><loc:longitude>4.9040</loc:longitude></loc:pointCoordinates></loc:pointByCoordinates></sit:locationReference><sit:operatorActionStatus>implemented</sit:operatorActionStatus></sit:situationRecord></sit:situation>'
+          '<sit:situation id="b2"><sit:situationRecord id="BRUG2"><com:validity><com:validityTimeSpecification><com:overallStartTime>%s</com:overallStartTime><com:overallEndTime>%s</com:overallEndTime></com:validityTimeSpecification></com:validity>'
+          '<sit:locationReference><loc:pointByCoordinates><loc:pointCoordinates><loc:latitude>52.30</loc:latitude><loc:longitude>4.80</loc:longitude></loc:pointCoordinates></loc:pointByCoordinates></sit:locationReference><sit:management><sit:lifeCycleManagement><sit:end>true</sit:end></sit:lifeCycleManagement></sit:management></sit:situationRecord></sit:situation></d2:payload>'
+          ) % (f(now - dt.timedelta(minutes=2)), f(now + dt.timedelta(minutes=6)), f(now - dt.timedelta(minutes=2)), f(now + dt.timedelta(minutes=6)))
+        CTL.setdefault("brug", 0); CTL["brug"] += 1
+        return r.fulfill(body=gzip.compress(xmlb.encode()), content_type='application/gzip')
+    if 'buienradar' in u:
+        import datetime as dt
+        CTL.setdefault("rainq", 0); CTL["rainq"] += 1
+        t0 = dt.datetime.now(); lines = []
+        for i in range(24):
+            tt = t0 + dt.timedelta(minutes=5 * i); v = 0 if i < 1 else 120
+            lines.append("%03d|%02d:%02d" % (v, tt.hour, tt.minute))
+        return r.fulfill(body="\r\n".join(lines), content_type='text/plain')
     if 'api.pdok.nl' in u:
         CTL.setdefault("pdok", []); CTL["pdok"].append(u)
         if not CTL.get("rws"): return r.fulfill(json={"type": "FeatureCollection", "features": [], "links": []})
@@ -82,12 +103,17 @@ def handler(r):
         CTL.setdefault("overpass", 0); CTL["overpass"] += 1
         if CTL.get("osm") == "fail": return r.abort()
         from urllib.parse import unquote
+        if 'low_emission_zone' in unquote(u):
+            ring = [[4.906, 52.374], [4.92, 52.374], [4.92, 52.385], [4.906, 52.385]]
+            half1 = ring[:3]; half2 = ring[2:] + [ring[0]]
+            return r.fulfill(json={"elements": [{"type": "relation", "id": 77, "tags": {"boundary": "low_emission_zone", "name": "Milieuzone Centrum"},
+                "members": [{"type": "way", "role": "outer", "geometry": [{"lon": p[0], "lat": p[1]} for p in half1]}, {"type": "way", "role": "outer", "geometry": [{"lon": p[0], "lat": p[1]} for p in half2]}]}]})
         if 'amenity=fuel' in unquote(u):
             return r.fulfill(json={"elements": [{"type": "node", "id": 9, "lat": 52.372, "lon": 4.905, "tags": {"amenity": "fuel", "name": "Shell Damrak", "addr:street": "Damrak"}},
                                                 {"type": "node", "id": 8, "lat": 52.39, "lon": 4.93, "tags": {"amenity": "fuel", "brand": "Esso"}}]})
         if 'traffic_signals' in unquote(u):
             CTL.setdefault("sigq", 0); CTL["sigq"] += 1
-            return r.fulfill(json={"elements": [{"type": "node", "id": 1, "lat": B[1], "lon": B[0]}, {"type": "node", "id": 2, "lat": B[1] + 0.00005, "lon": B[0]}, {"type": "node", "id": 3, "lat": C[1], "lon": C[0]}]})
+            return r.fulfill(json={"elements": [{"type": "node", "id": 50, "lat": 52.3712, "lon": 4.9011, "tags": {"amenity": "charging_station", "operator": "Vattenfall", "socket:type2": "2", "socket:type2:output": "22 kW", "capacity": "2"}}, {"type": "node", "id": 1, "lat": B[1], "lon": B[0]}, {"type": "node", "id": 2, "lat": B[1] + 0.00005, "lon": B[0]}, {"type": "node", "id": 3, "lat": C[1], "lon": C[0]}]})
         W = lambda tags, pts: {"type": "way", "tags": tags, "geometry": [{"lat": p[1], "lon": p[0]} for p in pts]}
         return r.fulfill(json={"elements": [W({"highway": CTL.get("hw", "secondary"), "name": "Damrak", "maxspeed": "50"}, [A, [4.9, 52.3745], B]),
             W({"highway": "residential", "name": "Prins Hendrikkade", "maxspeed": "30"}, [B, C]),

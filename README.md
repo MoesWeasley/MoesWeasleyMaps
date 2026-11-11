@@ -119,3 +119,23 @@ Tik op Smiesh en stel een vraag (spraakherkenning van de telefoon). Smiesh luist
 - gewoon kletsen.
 
 Vul je gratis Gemini-sleutel in bij Instellingen (aistudio.google.com) en tik op Testen. De sleutel blijft op je telefoon en gaat alleen naar Google. Zonder sleutel werkt Smiesh zoals eerst. Slaapt hij, dan maakt een tik hem wakker en luistert hij meteen.
+
+## Onderweg: bruggen, regen, milieuzones, laadpunten
+
+- **Brugopeningen (live, NDW):** tijdens het rijden haalt de app elke 2 minuten de open en bijna-open bruggen op (`brugopeningen.xml.gz`, klein bestand). Een open brug op je route telt mee bij het kiezen van de route en je krijgt een melding onderweg.
+- **Regen op je route (Buienradar):** elke 10 minuten wordt gekeken of het gaat regenen op de plekken waar je over 0–60 minuten rijdt. Smiesh zegt "Paraplu mee!".
+- **Milieuzones (OpenStreetMap):** het routescherm zegt of je route door een milieuzone gaat; vlak ervoor komt een melding.
+- **Laadpunten (OpenStreetMap):** groene laadpaal-iconen vanaf zoom 13; tik voor aanbieder, stekkers en vermogen. Worden in hetzelfde verzoek opgehaald als de verkeerslichten.
+- In de app gaan deze verzoeken via de telefoon zelf (CapacitorHttp), zodat bronnen zonder CORS ook werken.
+
+## Flitser melden met je stem
+
+Met Smiesh-AI: "Smiesh, daar staat een flitser" → de melding komt op de kaart en wordt gedeeld (Firebase).
+
+## Snelkoppelingen
+
+Lang drukken op het app-icoon: **Naar huis** en **Naar werk** (gebruikt je opgeslagen Thuis/Werk). Werkt via de link `moesweasley://naar/thuis`.
+
+## Matrixborden (nog niet)
+
+De NDW levert matrixborden alleen als één groot landelijk bestand dat elke minuut verandert, met een aparte locatietabel. Dat is te zwaar voor een telefoon; daarvoor is een kleine eigen server nodig die het filtert.

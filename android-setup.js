@@ -21,6 +21,32 @@ const lines = [
   '<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />',
   '<uses-permission android:name="android.permission.RECORD_AUDIO" />'
 ];
+/* snelkoppelingen op het app-icoon (lang drukken): Naar huis / Naar werk, via de link moesweasley://naar/... */
+const resDir = path.join(__dirname, "android", "app", "src", "main", "res");
+const appId = JSON.parse(fs.readFileSync(path.join(__dirname, "capacitor.config.json"), "utf8")).appId;
+fs.mkdirSync(path.join(resDir, "xml"), { recursive: true });
+const sc = (id, label, long, url) => `  <shortcut android:shortcutId="${id}" android:enabled="true" android:icon="@mipmap/ic_launcher" android:shortcutShortLabel="@string/${label}" android:shortcutLongLabel="@string/${long}">
+    <intent android:action="android.intent.action.VIEW" android:targetPackage="${appId}" android:targetClass="${appId}.MainActivity" android:data="${url}" />
+  </shortcut>`;
+fs.writeFileSync(path.join(resDir, "xml", "shortcuts.xml"), `<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+${sc("naar_huis", "sc_home", "sc_home_long", "moesweasley://naar/thuis")}
+${sc("naar_werk", "sc_work", "sc_work_long", "moesweasley://naar/werk")}
+</shortcuts>
+`);
+const strFile = path.join(resDir, "values", "strings.xml");
+if (fs.existsSync(strFile)) {
+  let sx = fs.readFileSync(strFile, "utf8");
+  if (!sx.includes("sc_home")) {
+    sx = sx.replace("</resources>", '    <string name="sc_home">Naar huis</string>\n    <string name="sc_home_long">Navigeer naar huis</string>\n    <string name="sc_work">Naar werk</string>\n    <string name="sc_work_long">Navigeer naar werk</string>\n</resources>');
+    fs.writeFileSync(strFile, sx);
+  }
+}
+if (!xml.includes("android.app.shortcuts")) {
+  xml = xml.replace(/(<activity[^>]*MainActivity[\s\S]*?)(<\/activity>)/, '$1    <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />\n            <intent-filter>\n                <action android:name="android.intent.action.VIEW" />\n                <category android:name="android.intent.category.DEFAULT" />\n                <category android:name="android.intent.category.BROWSABLE" />\n                <data android:scheme="moesweasley" />\n            </intent-filter>\n        $2');
+}
+console.log(xml.includes("android.app.shortcuts") ? "Snelkoppelingen Naar huis/werk toegevoegd" : "Let op: snelkoppelingen niet toegevoegd");
+
 /* spraakherkenning (Smiesh luistert): Android 11+ moet de herkenningsdienst mogen zien */
 if (!xml.includes("android.speech.RecognitionService")) {
   xml = xml.replace(/(\s*)<application/, "\n    <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent></queries>$1<application");

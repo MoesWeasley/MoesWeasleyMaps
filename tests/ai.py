@@ -42,7 +42,7 @@ with sync_playwright() as p:
     print('8. kletsen, opmaak eruit')
     st_,b,s=ask('vertel iets leuks',2500); check('**' not in b and 'Smiesh' in b,'geen sterretjes: '+b)
     print('9. verkeerde sleutel')
-    GEM['status']=403; st_,b,s=ask('hallo',2500); GEM['status']=None
+    GEM['status']=403; a.ev("window.__mn.moes()") ; st_,b,s=ask('hallo',4500); GEM['status']=None
     check('sleutel' in b.lower(),'zegt dat de sleutel niet werkt: '+b)
     print('9b. slapend aantikken = wakker en meteen luisteren')
     a.ev("window.__mn.moes()._set=1")

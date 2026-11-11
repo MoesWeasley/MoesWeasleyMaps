@@ -11,7 +11,7 @@ function html(id, v) { var e = typeof id === "string" ? $(id) : id; if (e.__h !=
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto", signals: true, ai: true }, load("set", {}));
+var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto", signals: true, ai: true, rain: true, zones: true, chargers: true }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -288,7 +288,7 @@ var TRAF = {
   file: { l: "File", c: "#ff7a00", pen: 240 }, pech: { l: "Pechgeval", c: "#ff9a00", pen: 90 },
   obstakel: { l: "Obstakel op de weg", c: "#ffb300", pen: 90 }, rijstrook: { l: "Rijstrook dicht", c: "#ff8a1f", pen: 60 }, werk: { l: "Wegwerkzaamheden", c: "#d98a00", pen: 120 },
   snelheid: { l: "Snelheidsmaatregel", c: "#2f7bff", pen: 0 }, weer: { l: "Weersomstandigheden", c: "#4a90c2", pen: 0 },
-  evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
+  evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, brug: { l: "Brug open", c: "#2f9bff", pen: 240 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
 };
 /* ---------- kaarticonen in de stijl van de app: glazen tegel met fel verloop en wit symbool ---------- */
 var W = "#fff";
@@ -299,7 +299,7 @@ function excl() { return '<rect x="29" y="17" width="6" height="19" rx="3" fill=
 var TILE = { /* verloop per soort */
   werk: ["#ffb02e", "#ff6a3d"], ongeval: ["#ff4f7b", "#e0234f"], file: ["#ff8a3d", "#ff3d6e"], afsluiting: ["#ff3d5a", "#c2185b"],
   pech: ["#ffc23d", "#ff8a1f"], obstakel: ["#ffb300", "#ff7a00"], rijstrook: ["#ff9a3c", "#ff5c8a"], werk2: null,
-  snelheid: ["#4f8bff", "#7b5cff"], weer: ["#49bfff", "#5b7cff"], evenement: ["#b15cff", "#7b5cff"], overig: ["#8f8fff", "#7b5cff"],
+  snelheid: ["#4f8bff", "#7b5cff"], brug: ["#3db4ff", "#3f6bff"], milieu: ["#2ee59d", "#12a37a"], ev: ["#2ee59d", "#14a8c8"], weer: ["#49bfff", "#5b7cff"], evenement: ["#b15cff", "#7b5cff"], overig: ["#8f8fff", "#7b5cff"],
   vast: ["#3db4ff", "#6a5cff"], mobiel: ["#ff5ca8", "#ff7a3d"], traject: ["#19d3b0", "#2f9bff"], roodlicht: ["#ff4f5a", "#ff9a3c"], cam_overig: ["#9a7bff", "#c24dff"]
 };
 var PICTO = {
@@ -311,6 +311,9 @@ var PICTO = {
   evenement: function () { return '<path d="M24 47V17M24 18h17l-4.5 6 4.5 6H24" stroke="' + W + '" stroke-width="3.4" fill="' + W + '" stroke-linejoin="round" stroke-linecap="round"/>'; },
   rijstrook: function () { return '<path d="M24 46V18M40 46V18" stroke="' + W + '" stroke-width="4" stroke-linecap="round"/><path d="M35.5 23l9 9M44.5 23l-9 9" stroke="#fff36b" stroke-width="3.6" stroke-linecap="round"/>'; },
   weer: function () { return '<path d="M21 34a7 7 0 010-14 9 9 0 0117-2 7 7 0 015 16z" fill="' + W + '"/><path d="M24 39l-2.4 6M32 39l-2.4 6M40 39l-2.4 6" stroke="' + W + '" stroke-width="3" stroke-linecap="round"/>'; },
+  brug: function () { return '<path d="M14 42h36M14 42V34M50 42V34" stroke="' + W + '" stroke-width="3.6" stroke-linecap="round"/><path d="M16 34L28 22M48 34L36 22" stroke="' + W + '" stroke-width="4" stroke-linecap="round"/><path d="M15 48q4-3 8 0t8 0 8 0 8 0" stroke="' + W + '" stroke-width="2.6" fill="none" stroke-linecap="round"/>'; },
+  milieu: function () { return '<path d="M20 44c0-16 12-26 26-26 0 16-10 26-26 26z" fill="' + W + '"/><path d="M20 44c6-8 12-13 19-17" stroke="' + TILE.milieu[1] + '" stroke-width="2.4" fill="none" stroke-linecap="round"/>'; },
+  ev: function () { return '<rect x="18" y="16" width="20" height="32" rx="4" fill="' + W + '"/><path d="M38 24h4a3 3 0 013 3v12a2 2 0 004 0V26l-4-5" stroke="' + W + '" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M29 21l-6 10h5l-2 9 7-12h-5l2-7z" fill="' + TILE.ev[1] + '"/>'; },
   afsluiting: function () { return '<circle cx="32" cy="32" r="15" fill="none" stroke="' + W + '" stroke-width="4"/><rect x="22" y="29" width="20" height="6" rx="3" fill="' + W + '"/>'; }
 };
 /* glazen tegel: verloop, witte rand, glans bovenaan, zachte schaduw */
@@ -341,6 +344,7 @@ function mapIcons() {
   var all = { tl: TL_SVG };
   Object.keys(CAMCOL).forEach(function (k) { all["cam-" + k] = camSVG(k); });
   Object.keys(TRAF).forEach(function (k) { all["inc-" + k] = signSVG(k); });
+  all.ev = signSVG("ev"); all["inc-milieu"] = signSVG("milieu");
   Object.keys(all).forEach(function (name) {
     var img = new Image(64, 64);
     img.onload = function () { try { if (!map.hasImage || !map.hasImage(name)) map.addImage(name, img, { pixelRatio: 2 }); } catch (e) {} };
@@ -421,6 +425,9 @@ function addLayers() {
   map.addLayer({ id: "traffic-glow", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 10, 15, 24], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addLayer({ id: "cams-glow", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 10, 15, 26], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addSource("signals", { type: "geojson", data: EMPTY });
+  map.addSource("chargers", { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "chargers-i", type: "symbol", source: "chargers", minzoom: 12.5, layout: { "icon-image": "ev", "icon-size": ["interpolate", ["linear"], ["zoom"], 12.5, 0.4, 16, 0.75], "icon-allow-overlap": true } });
+  map.on("click", "chargers-i", function (e) { var p = e.features[0].properties; toast((p.name || "Laadpunt") + (p.info ? " · " + p.info : ""), false, 4500); });
   map.addLayer({ id: "signals-i", type: "symbol", source: "signals", minzoom: 14, layout: { "icon-image": "tl", "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.38, 17, 0.62], "icon-allow-overlap": true, "icon-ignore-placement": true } });
   map.addLayer({ id: "traffic-i", type: "symbol", source: "traffic", minzoom: 8, layout: { "icon-image": ["get", "icon"], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.45, 15, 0.85], "icon-allow-overlap": true, "icon-ignore-placement": true } });
   map.addLayer({ id: "cams-i", type: "symbol", source: "cams", minzoom: 9, layout: { "icon-image": ["get", "icon"], "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.45, 15, 0.85], "icon-allow-overlap": true, "icon-ignore-placement": true } });
@@ -847,7 +854,7 @@ function chooseDest(d) {
   fetchRoutes(from, d, null).then(function (routes) {
     if (st.dest !== d) return;
     st.routes = routes; st.sel = scoreRoutes(routes); $("startnav").disabled = false;
-    renderAlts(); drawRoutes(); fitRoutes();
+    renderAlts(); drawRoutes(); fitRoutes(); markZones(); loadBridges(true);
     if (st.aiAutoStart === d) { st.aiAutoStart = null; startNav(); }
     fetchLive(routesBox(routes), true).then(function (changed) {
       if (!changed || st.dest !== d || st.nav) return;
@@ -880,9 +887,11 @@ function renderAlts() {
   }).join("");
   Array.prototype.forEach.call($("alts").querySelectorAll(".alt"), function (b) { b.onclick = function () { selectRoute(+b.dataset.i); }; });
   var r = st.routes[st.sel], w = $("routewarn");
+  var zt = r && r.zones && r.zones.length ? "Door milieuzone: " + r.zones.map(function (z) { return z.zone.name; }).slice(0, 2).join(", ") + ". " : "";
+  if (zt && !(r.blocking.length)) { w.textContent = zt; w.hidden = false; return; }
   if (r && r.blocking.length) {
     var kinds = {}; r.blocking.forEach(function (o) { var l = TRAF[o.p.t].l.toLowerCase(); kinds[l] = (kinds[l] || 0) + 1; });
-    w.textContent = "Op deze route: " + Object.keys(kinds).map(function (k) { return kinds[k] + "× " + k; }).join(", ") + ".";
+    w.textContent = zt + "Op deze route: " + Object.keys(kinds).map(function (k) { return kinds[k] + "× " + k; }).join(", ") + ".";
     w.hidden = false;
   } else w.hidden = true;
 }
@@ -934,7 +943,7 @@ function startNav() {
   if (!load("bgAsked", false)) { store("bgAsked", true); setTimeout(function () { askBackground(false); }, 1500); }
   st.drive = false; document.body.classList.remove("drive");
   st.route = r; st.nav = true; st.follow = true; st.hint = 0; st.offCount = 0; st.said = {}; st.warned = {}; st.arrived = false;
-  prepRouteWarnings();
+  prepRouteWarnings(); st.routeZones = r.zones || []; st.zoneWarned = {};
   closeSheets(); document.body.classList.add("nav");
   $("top").hidden = true; $("banner").hidden = false; $("navbar").hidden = false;
   drawRoutes(); keepAwake(true);
@@ -1078,7 +1087,7 @@ function reroute() {
     if (!st.nav) return;
     var best = scoreRoutes(routes);
     st.route = routes[best]; st.routes = routes; st.sel = best; st.hint = 0; st.offCount = 0; st.said = {}; anim.aRoute = null;
-    prepRouteWarnings(); drawRoutes();
+    prepRouteWarnings(); drawRoutes(); markZones();
     if (st.pos) { var loc = N.locate(st.route, st.pos.lat, st.pos.lon, 0); st.hint = loc.idx; navUpdate(loc.along); }
   }).catch(function () {
     if (!st.nav) return;
@@ -1161,7 +1170,7 @@ var traffic = load("verkeer", null);
 function activeTraffic() {
   if (!S.traffic) return [];
   var now = Date.now();
-  var a = ((traffic && traffic.items) || []).concat(live.items);
+  var a = ((traffic && traffic.items) || []).concat(live.items).concat(bridges);
   return a.filter(function (x) { return !x.until || Date.parse(x.until) > now; });
 }
 function drawTraffic() {
@@ -1268,6 +1277,169 @@ function fetchLive(box, force) {
     drawTraffic(); setTrafInfo(); if (st.nav) prepRouteWarnings();
     return true;
   });
+}
+
+/* ---------- ophalen zonder CORS-beperking (in de app via de telefoon zelf, in de browser gewoon fetch) ---------- */
+function xget(url, bin, ms) {
+  var H = NATIVE && PL.CapacitorHttp;
+  if (H) return H.request({ url: url, method: "GET", responseType: bin ? "arraybuffer" : "text", connectTimeout: ms || 15000, readTimeout: ms || 15000 }).then(function (r) {
+    if (r.status && r.status >= 400) throw new Error("HTTP " + r.status);
+    if (!bin) return typeof r.data === "string" ? r.data : JSON.stringify(r.data);
+    var s = atob(r.data), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer;
+  });
+  var ctl = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (ctl) ctl.abort(); }, ms || 15000);
+  return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { clearTimeout(t); if (!r.ok) throw new Error("HTTP " + r.status); return bin ? r.arrayBuffer() : r.text(); });
+}
+function gunzipText(buf) {
+  var u = new Uint8Array(buf);
+  if (!(u[0] === 0x1f && u[1] === 0x8b)) return Promise.resolve(new TextDecoder().decode(u)); /* al uitgepakt */
+  if (!window.DecompressionStream) return Promise.reject(new Error("geen gzip"));
+  return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+}
+function elText(el, name) { var x = el.getElementsByTagNameNS("*", name)[0]; return x ? x.textContent.trim() : ""; }
+
+/* ---------- brugopeningen (NDW, live) ---------- */
+var bridges = [], brugT = 0, brugBusy = false;
+var BRUG_URL = CFG.bridgesUrl != null ? CFG.bridgesUrl : "https://opendata.ndw.nu/brugopeningen.xml.gz";
+function loadBridges(force) {
+  if (!S.traffic || brugBusy || !BRUG_URL) return;
+  if (!force && Date.now() - brugT < 120000) return;
+  brugBusy = true; brugT = Date.now();
+  xget(BRUG_URL, true, 20000).then(gunzipText).then(function (xml) {
+    var doc = new DOMParser().parseFromString(xml, "application/xml"), now = Date.now(), out = [];
+    Array.prototype.forEach.call(doc.getElementsByTagNameNS("*", "situationRecord"), function (r) {
+      if (elText(r, "end") === "true") return;
+      var st0 = Date.parse(elText(r, "overallStartTime")), en = Date.parse(elText(r, "overallEndTime"));
+      var lat = parseFloat(elText(r, "latitude")), lon = parseFloat(elText(r, "longitude"));
+      if (isNaN(lat) || isNaN(lon) || isNaN(st0)) return;
+      if (isNaN(en)) en = st0 + 10 * 60000;
+      var open = st0 <= now && now < en, soon = st0 > now && st0 - now < 15 * 60000;
+      if (!open && !soon) return;
+      out.push({ id: "brug" + (r.getAttribute("id") || lat + "," + lon), t: "brug", lat: lat, lon: lon, until: new Date(en).toISOString(),
+        delay: open ? Math.round((en - now) / 1000) : null, desc: open ? "open tot " + hhmm(new Date(en)) : "gaat open om " + hhmm(new Date(st0)) });
+    });
+    bridges = out; drawTraffic();
+    if (st.nav) prepRouteWarnings();
+    else if (st.routes.length) { st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes(); } /* routescherm: bruggen meetellen */
+  }).catch(function () {}).then(function () { brugBusy = false; });
+}
+setInterval(function () { if (st.nav || st.drive) loadBridges(false); }, 30000);
+
+/* ---------- regen op je route (Buienradar) ---------- */
+var rain = { t: 0, busy: false, warned: 0 };
+function rainAt(lat, lon) {
+  var u = (CFG.rainUrl || "https://gpsgadget.buienradar.nl/data/raintext") + "?lat=" + lat.toFixed(2) + "&lon=" + lon.toFixed(2);
+  return xget(u, false, 10000).then(function (txt) {
+    return String(txt).trim().split(/\r?\n/).map(function (l) {
+      var p = l.split("|"); if (p.length < 2) return null;
+      var v = parseInt(p[0], 10), hm = p[1].trim().split(":"), d = new Date(); d.setHours(+hm[0], +hm[1], 0, 0);
+      if (d.getTime() < Date.now() - 12 * 3600000) d.setDate(d.getDate() + 1); /* over middernacht */
+      return { t: d.getTime(), mm: v > 0 ? Math.pow(10, (v - 109) / 32) : 0 };
+    }).filter(Boolean);
+  });
+}
+function checkRain() {
+  if (!S.rain || CFG.rainUrl === "" || rain.busy || !st.pos || Date.now() - rain.t < 10 * 60000) return;
+  if (!(st.nav && st.route) && !st.drive) return;
+  rain.busy = true; rain.t = Date.now();
+  /* punten waar je over 0, 15, 30, 45 en 60 minuten bent */
+  var pts = [{ lat: st.pos.lat, lon: st.pos.lon, at: Date.now() }];
+  if (st.nav && st.route) {
+    var al = st.along || 0, rem = N.remainingTime(st.route, al), dist = st.route.distance - al;
+    [15, 30, 45, 60].forEach(function (m) { if (m * 60 < rem) { var p = N.pointAt(st.route, al + dist * (m * 60 / rem)); pts.push({ lat: p.lat, lon: p.lon, at: Date.now() + m * 60000 }); } });
+  }
+  Promise.all(pts.map(function (p) { return rainAt(p.lat, p.lon).then(function (ser) {
+    /* op het punt waar je straks bent: rond dat moment; zonder route (rondrijden): de komende 15 minuten hier */
+    var lo = p.at - 10 * 60000, hi = p.at + (st.nav && st.route ? 10 : 15) * 60000;
+    var hit = ser.filter(function (s) { return s.mm >= 0.3 && s.t >= lo && s.t <= hi; })[0];
+    return hit ? { at: Math.max(Date.now(), hit.t), mm: hit.mm } : null;
+  }).catch(function () { return null; }); })).then(function (res) {
+    var first = res.filter(Boolean).sort(function (a, b) { return a.at - b.at; })[0];
+    if (!first) { st.rainMsg = null; return; }
+    var min = Math.max(0, Math.round((first.at - Date.now()) / 60000)), heavy = first.mm >= 2.5;
+    st.rainMsg = { min: min, heavy: heavy, until: Date.now() + 10 * 60000 };
+    if (Date.now() - rain.warned > 30 * 60000) {
+      rain.warned = Date.now();
+      say(min <= 2 ? (heavy ? "Let op, flinke regen op je route." : "Het gaat regenen op je route.") : "Over ongeveer " + min + " minuten " + (heavy ? "flinke regen" : "regen") + " op je route.");
+      if (moes && S.moes) { moes.play("look", true); moes.say(heavy ? "Oei, plensbui! Rustig aan." : "Paraplu mee!", 2600); }
+      showRainAlert();
+    }
+  }).then(function () { rain.busy = false; });
+}
+function showRainAlert() {
+  var r = st.rainMsg; if (!r) return;
+  showAlert("trafficweer", r.heavy ? "Flinke regen" : "Regen op je route", r.min <= 2 ? "Nu, rij voorzichtig" : "Over ongeveer " + r.min + " min", signSVG("weer"), false);
+  alertFor = "rain"; clearTimeout(rain.hideT); rain.hideT = setTimeout(function () { if (alertFor === "rain") hideAlert(); }, 9000);
+}
+setInterval(checkRain, 60000);
+
+/* ---------- milieuzones (OpenStreetMap) ---------- */
+var mz = { zones: [], key: "" };
+function ringsFromWays(ways) { /* losse stukken grens aan elkaar knopen tot ringen */
+  var segs = ways.map(function (w) { return w.slice(); }), rings = [];
+  while (segs.length) {
+    var r = segs.shift(), guard = 0;
+    while (guard++ < 500) {
+      var a = r[0], b = r[r.length - 1];
+      if (Math.abs(a[0] - b[0]) < 1e-7 && Math.abs(a[1] - b[1]) < 1e-7) break;
+      var idx = -1, rev = false;
+      for (var i = 0; i < segs.length; i++) {
+        var s = segs[i];
+        if (Math.abs(s[0][0] - b[0]) < 1e-7 && Math.abs(s[0][1] - b[1]) < 1e-7) { idx = i; break; }
+        if (Math.abs(s[s.length - 1][0] - b[0]) < 1e-7 && Math.abs(s[s.length - 1][1] - b[1]) < 1e-7) { idx = i; rev = true; break; }
+      }
+      if (idx < 0) break;
+      var nx = segs.splice(idx, 1)[0]; if (rev) nx.reverse(); r = r.concat(nx.slice(1));
+    }
+    if (r.length > 3) rings.push(r);
+  }
+  return rings;
+}
+function loadZones(routes) {
+  if (!S.zones || !OVERPASS.length || !routes || !routes.length) return Promise.resolve([]);
+  var b = routesBox(routes), key = [b.w, b.s, b.e, b.n].map(function (v) { return v.toFixed(2); }).join(",");
+  if (key === mz.key) return Promise.resolve(mz.zones);
+  var q = "[out:json][timeout:20];relation[boundary=low_emission_zone](" + [b.s, b.w, b.n, b.e].map(function (v) { return v.toFixed(4); }).join(",") + ");out geom;";
+  return firstOk(OVERPASS.map(function (u) { return u + "?data=" + encodeURIComponent(q); }), 20000).then(function (d) {
+    mz.key = key;
+    mz.zones = (d.elements || []).map(function (rel) {
+      var outer = (rel.members || []).filter(function (m) { return m.type === "way" && m.role !== "inner" && m.geometry; }).map(function (m) { return m.geometry.map(function (p) { return [p.lon, p.lat]; }); });
+      var t = rel.tags || {};
+      return { id: rel.id, name: t.name || "Milieuzone", rings: ringsFromWays(outer) };
+    }).filter(function (z) { return z.rings.length; });
+    return mz.zones;
+  }).catch(function () { return []; });
+}
+function zonesOnRoute(r) { /* eerste punt van de route dat in een milieuzone ligt */
+  var hits = [];
+  mz.zones.forEach(function (z) {
+    for (var i = 0; i < r.coords.length; i += 3) {
+      var c = r.coords[i];
+      if (z.rings.some(function (ring) { return inRing(c, ring); })) { hits.push({ zone: z, along: r.cum[i] }); break; }
+    }
+  });
+  return hits.sort(function (a, b) { return a.along - b.along; });
+}
+function markZones() {
+  if (!st.routes.length) return;
+  loadZones(st.routes).then(function () {
+    st.routes.forEach(function (r) { r.zones = zonesOnRoute(r); });
+    if (!st.nav) renderAlts();
+    if (st.nav && st.route) st.routeZones = st.route.zones || zonesOnRoute(st.route);
+  });
+}
+
+/* ---------- laadpunten (OpenStreetMap) ---------- */
+var evp = { nodes: {} };
+function drawChargers() {
+  var f = [];
+  if (S.chargers) Object.keys(evp.nodes).forEach(function (k) { var n = evp.nodes[k]; f.push({ type: "Feature", properties: { name: n.name, info: n.info }, geometry: { type: "Point", coordinates: [n.lon, n.lat] } }); });
+  setData("chargers", { type: "FeatureCollection", features: f });
+}
+function chargerInfo(t) {
+  var plugs = Object.keys(t).filter(function (k) { return /^socket:[^:]+$/.test(k) && t[k] !== "no"; }).map(function (k) { return k.split(":")[1].replace("type2_combo", "CCS").replace("type2", "Type 2").replace("chademo", "CHAdeMO"); });
+  var kw = Object.keys(t).filter(function (k) { return /^socket:.*:output$/.test(k); }).map(function (k) { return parseFloat(t[k]); }).filter(function (x) { return x > 0; });
+  return [t.operator || t.network || t.brand, plugs.slice(0, 3).join(", "), kw.length ? "tot " + Math.max.apply(null, kw) + " kW" : "", t.capacity ? t.capacity + " plekken" : ""].filter(Boolean).join(" · ");
 }
 
 /* drukte op de kaart: TomTom-verkeerstegels (groen/oranje/rood) */
@@ -1394,7 +1566,7 @@ function osmLimit() {
 /* ---------- officiële limieten op rijkswegen (Rijkswaterstaat, PDOK) als aanvulling ----------
    Op een rijksweg gaat deze limiet voor op OpenStreetMap, inclusief tijden (bijv. 100 overdag, 130 's avonds). */
 var rws = { ways: [], at: null, t: 0, busy: false, fail: 0, nextTry: 0 };
-var RWS_URL = CFG.rwsUrl || "https://api.pdok.nl/rws/weggegevens/ogc/v1/collections/wegvak_max_snelheden/items";
+var RWS_URL = CFG.rwsUrl != null ? CFG.rwsUrl : "https://api.pdok.nl/rws/weggegevens/ogc/v1/collections/wegvak_max_snelheden/items";
 function inNL(p) { return p.lat > 50.7 && p.lat < 53.7 && p.lon > 3.2 && p.lon < 7.3; }
 function rwsFetch(lat, lon) {
   rws.busy = true;
@@ -1444,25 +1616,27 @@ function drawSignals() {
   setData("signals", { type: "FeatureCollection", features: f });
 }
 function loadSignals() {
-  if (!mapReady || !S.signals || sig.busy || Date.now() < sig.nextTry || map.getZoom() < 14 || !map.getBounds || !OVERPASS.length) return;
+  if (!mapReady || !(S.signals || S.chargers) || sig.busy || Date.now() < sig.nextTry || map.getZoom() < 13 || !map.getBounds || !OVERPASS.length) return;
   var b = map.getBounds(), w = b.getWest(), s = b.getSouth(), e = b.getEast(), n = b.getNorth(), need = [];
   for (var x = Math.floor(w / SIGC); x <= Math.floor(e / SIGC); x++) for (var y = Math.floor(s / SIGC); y <= Math.floor(n / SIGC); y++) if (!sig.cells[x + "," + y]) need.push([x, y]);
   if (!need.length || need.length > 16) return;
   var bx = [Infinity, Infinity, -Infinity, -Infinity];
   need.forEach(function (c) { bx[0] = Math.min(bx[0], c[1] * SIGC); bx[1] = Math.min(bx[1], c[0] * SIGC); bx[2] = Math.max(bx[2], (c[1] + 1) * SIGC); bx[3] = Math.max(bx[3], (c[0] + 1) * SIGC); });
   var bb = bx.map(function (v) { return v.toFixed(4); }).join(",");
-  var q = "[out:json][timeout:20];(node[highway=traffic_signals](" + bb + ");node[crossing=traffic_signals](" + bb + "););out;";
+  var q = "[out:json][timeout:20];(node[highway=traffic_signals](" + bb + ");node[crossing=traffic_signals](" + bb + ");nwr[amenity=charging_station](" + bb + "););out center;";
   sig.busy = true;
   firstOk(OVERPASS.map(function (u) { return u + "?data=" + encodeURIComponent(q); }), 25000).then(function (d) {
     need.forEach(function (c) { sig.cells[c[0] + "," + c[1]] = 1; });
     var placed = Object.keys(sig.nodes).map(function (k) { return sig.nodes[k]; });
     (d.elements || []).forEach(function (el) {
-      if (el.lat == null) return;
+      var t = el.tags || {}, lat = el.lat != null ? el.lat : el.center && el.center.lat, lon = el.lon != null ? el.lon : el.center && el.center.lon;
+      if (lat == null) return;
+      if (t.amenity === "charging_station") { evp.nodes[el.type + el.id] = { lat: lat, lon: lon, name: t.name || t.operator || t.network || "Laadpunt", info: chargerInfo(t) }; return; }
       /* lampen die vlak naast elkaar staan (zelfde kruispunt) als één tonen */
       if (placed.some(function (p) { return N.distM(p[1], p[0], el.lat, el.lon) < 14; })) return;
       var v = [el.lon, el.lat]; sig.nodes[el.id] = v; placed.push(v);
     });
-    sig.fail = 0; drawSignals();
+    sig.fail = 0; drawSignals(); drawChargers();
   }).catch(function () { sig.fail++; sig.nextTry = Date.now() + Math.min(120000, 15000 * sig.fail); })
     .then(function () { sig.busy = false; });
 }
@@ -1717,6 +1891,16 @@ function checkWarnings() {
     if (!st.warned[tk]) { st.warned[tk] = true; say("Let op, " + lc(tl) + " over " + N.sayDist(trafHit.d) + (tp.delay >= 120 ? ", ongeveer " + Math.round(tp.delay / 60) + " minuten vertraging" : "")); }
     return;
   }
+  if (st.nav && st.routeZones && st.routeZones.length && st.along != null) {
+    var zh = st.routeZones.filter(function (z) { return z.along - st.along > -50 && z.along - st.along < 1200; })[0];
+    if (zh) {
+      showAlert("trafficmilieu", "Milieuzone", zh.zone.name + " · over " + N.fmtDist(Math.max(0, zh.along - st.along)), signSVG("milieu"), false);
+      alertFor = "z" + zh.zone.id;
+      if (!st.zoneWarned[zh.zone.id]) { st.zoneWarned[zh.zone.id] = true; say("Let op, je rijdt zo een milieuzone in."); }
+      return;
+    }
+  }
+  if (alertFor === "rain") return; /* regenmelding even laten staan */
   if (alertFor) hideAlert(); else updateLimit();
   updateMoes();
 }
@@ -1872,6 +2056,8 @@ var AI_TOOLS = [{ functionDeclarations: [
     parameters: { type: "object", properties: { nummer: { type: "integer" }, favoriet: { type: "string" }, naam: { type: "string" } } } },
   { name: "tussenstop", description: "Voeg een gevonden plek (nummer uit zoek_plek) toe als tussenstop op de huidige route.", parameters: { type: "object", properties: { nummer: { type: "integer" } }, required: ["nummer"] } },
   { name: "stop_route", description: "Stop de huidige navigatie.", parameters: { type: "object", properties: {} } },
+  { name: "meld_flitser", description: "Meld een flitser of snelheidscontrole op de huidige plek (wordt op de kaart gezet en gedeeld met anderen).",
+    parameters: { type: "object", properties: { soort: { type: "string", enum: ["mobiel", "vast", "traject", "roodlicht", "overig"] } }, required: ["soort"] } },
   { name: "instelling", description: "Zet een instelling van de app aan of uit.",
     parameters: { type: "object", properties: { naam: { type: "string", enum: Object.keys(AI_SET).concat(["nachtmodus", "batterijbesparing"]) }, aan: { type: "boolean" } }, required: ["naam", "aan"] } },
   { name: "smiesh_actie", description: "Laat Smiesh (jezelf) iets doen op het scherm, passend bij het gesprek.",
@@ -1886,6 +2072,7 @@ function aiRun(name, args) {
     if (name === "tussenstop") return Promise.resolve(aiAddStop(args));
     if (name === "stop_route") { if (st.nav) stopNav(false); return Promise.resolve({ gestopt: true }); }
     if (name === "instelling") return Promise.resolve(aiSetting(args));
+    if (name === "meld_flitser") { if (!st.pos) return Promise.resolve({ fout: "nog geen GPS-positie" }); report(CAMCOL[args.soort] ? args.soort : "mobiel"); return Promise.resolve({ gemeld: camLabel(args.soort), gedeeld: !!fb.ready }); }
     if (name === "smiesh_actie") return Promise.resolve(aiAct(args));
   } catch (e) { return Promise.resolve({ fout: String(e.message || e) }); }
   return Promise.resolve({ fout: "onbekende functie" });
@@ -1896,6 +2083,7 @@ function aiSystem() {
     "Houd antwoorden KORT: maximaal twee korte zinnen, want de bestuurder rijdt en je antwoord wordt voorgelezen. Geen emoji, opsommingen of opmaak. " +
     "Gebruik altijd de functies voor tijden, afstanden, snelheden, flitsers, files en plekken; verzin die nooit. " +
     "Bij het zoeken van plekken: noem kort de dichtstbijzijnde (naam en afstand) en vraag of je erheen moet, tenzij de bestuurder al zei dat je moest gaan. " +
+    "Als de bestuurder een flitser, controle of mobiele flitser ziet, meld die meteen met meld_flitser (standaard soort mobiel) en bevestig kort. " +
     "Moedig nooit te hard rijden of telefoongebruik tijdens het rijden aan. Ben je iets niet zeker, zeg dat eerlijk. " +
     "Nu: " + new Date().toLocaleString("nl-NL", { weekday: "long", hour: "2-digit", minute: "2-digit" }) + (st.nav ? ", er is een route actief." : st.speed > 3 ? ", de bestuurder rijdt zonder route." : ".");
 }
@@ -2022,6 +2210,9 @@ function wire() {
   $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); if (!S.voice && window.speechSynthesis) speechSynthesis.cancel(); if (!S.voice && NATIVE && PL.TextToSpeech) { try { PL.TextToSpeech.stop(); } catch (e) {} } };
   $("s-flits").checked = S.flits; $("s-flits").onchange = function () { S.flits = this.checked; saveS(); drawCams(); prepRouteWarnings(); if (!S.flits) hideAlert(); };
   $("s-traffic").checked = S.traffic; $("s-traffic").onchange = function () { S.traffic = this.checked; saveS(); drawTraffic(); prepRouteWarnings(); };
+  $("s-rain").checked = S.rain; $("s-rain").onchange = function () { S.rain = this.checked; saveS(); rain.t = 0; };
+  $("s-zones").checked = S.zones; $("s-zones").onchange = function () { S.zones = this.checked; saveS(); mz.key = ""; if (!S.zones) st.routes.forEach(function (r) { r.zones = []; }); markZones(); };
+  $("s-chargers").checked = S.chargers; $("s-chargers").onchange = function () { S.chargers = this.checked; saveS(); drawChargers(); loadSignals(); };
   $("s-signals").checked = S.signals; $("s-signals").onchange = function () { S.signals = this.checked; saveS(); drawSignals(); loadSignals(); };
   $("s-flow").checked = S.flow; $("s-flow").onchange = function () { S.flow = this.checked; saveS(); setFlowLayer(); };
   $("k-tomtom").value = KEYS.tomtom; $("k-here").value = KEYS.here; $("k-mapbox").value = MAPBOX_TOKEN;
@@ -2089,6 +2280,18 @@ function wire() {
   if (NATIVE && PL.StatusBar) { try { PL.StatusBar.setOverlaysWebView({ overlay: true }); PL.StatusBar.setStyle({ style: "LIGHT" }); } catch (e) {} }
   document.addEventListener("visibilitychange", function () { if (!document.hidden && (st.nav || st.drive)) keepAwake(true); });
 }
+/* snelkoppeling op het app-icoon (lang drukken): "Naar huis" / "Naar werk" */
+function deepLink(url) {
+  var m = String(url || "").match(/naar\/(thuis|werk)/i); if (!m) return;
+  var kind = m[1].toLowerCase(), f = favs(), fv = kind === "thuis" ? f.home : f.work;
+  if (!fv) { toast("Sla eerst een plek op als " + (kind === "thuis" ? "Thuis" : "Werk") + " (☆ Bewaren bij een route).", false, 5000); return; }
+  var go = function () { aiGo(Object.assign({}, fv, { name: kind === "thuis" ? "Thuis" : "Werk" })); };
+  if (mapReady) go(); else setTimeout(go, 1500);
+}
+if (NATIVE && PL.App) {
+  try { PL.App.addListener("appUrlOpen", function (e) { deepLink(e && e.url); }); } catch (e) {}
+  try { PL.App.getLaunchUrl().then(function (r) { if (r && r.url) setTimeout(function () { deepLink(r.url); }, 800); }).catch(function () {}); } catch (e) {}
+}
 var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
 
@@ -2123,5 +2326,5 @@ setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */
-window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG, moes: function () { return moes; }, icons: function () { return { cam: camSVG, sign: signSVG, tl: TL_SVG, signals: sig }; }, moesTap: moesTap };
+window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG, moes: function () { return moes; }, icons: function () { return { cam: camSVG, sign: signSVG, tl: TL_SVG, signals: sig }; }, moesTap: moesTap, deepLink: deepLink, loadBridges: loadBridges, checkRain: checkRain, rain: rain };
 })();

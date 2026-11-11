@@ -1,0 +1,55 @@
+"""Bruggen, regen, milieuzones, laadpunten, flitser melden met stem, snelkoppeling naar huis."""
+from playwright.sync_api import sync_playwright
+from harness import App, CTL, GEM, A, D
+F=[]
+def check(ok,w):
+    print(('  ok   ' if ok else '  FOUT ')+w)
+    if not ok: F.append(w)
+with sync_playwright() as p:
+    a=App(p); pg=a.pg; pg.wait_for_timeout(1500)
+    print('1. route kiezen: milieuzone en brug')
+    a.search('centraal'); a.pick(0); pg.wait_for_timeout(2500)
+    w=pg.inner_text('#routewarn') if a.vis('#routewarn') else ''
+    print('   routescherm:',w)
+    check('Milieuzone Centrum' in w,'route gaat door milieuzone (meldt het)')
+    check('brug open' in w.lower(),'open brug op de route genoemd')
+    b=a.ev("(window.__mn.st.routes[0].traf||[]).filter(o=>o.p.t==='brug').map(o=>o.p.desc)")
+    check(len(b)==1 and 'open tot' in b[0],'alleen de echte open brug (afgelopen opening genegeerd): %s'%b)
+    print('2. navigeren: waarschuwingen onderweg')
+    pg.click('#startnav'); pg.wait_for_timeout(500); a.ev("window.__mn.startSim()")
+    seen=set()
+    for i in range(160):
+        pg.wait_for_timeout(500)
+        if a.vis('#balert'): seen.add(pg.inner_text('#batitle'))
+        if i==4: a.ev("window.__mn.rain.t=0;window.__mn.checkRain()")
+        if a.ev("window.__mn.st.arrived") or (len(seen)>=4 and i>40): break
+    said=' | '.join(a.ev("window.__said"))
+    print('   meldingen:',seen); print('   gezegd:',said[-400:])
+    check(any('Regen' in s for s in seen),'regen-waarschuwing in de balk')
+    check('regen' in said.lower(),'stem zegt dat het gaat regenen')
+    check('Milieuzone' in seen,'milieuzone-melding vlak ervoor')
+    check('milieuzone' in said.lower(),'stem waarschuwt voor milieuzone')
+    check('Brug open' in seen,'brug-melding onderweg')
+    check(CTL.get('rainq',0)<=5,'regen: hooguit 5 verzoeken (%d)'%CTL.get('rainq',0))
+    if a.ev("window.__mn.st.nav"): pg.click('#stopnav'); pg.wait_for_timeout(1200)
+    print('3. laadpunten')
+    n=a.ev("Object.keys(window.__mn.icons().signals.nodes).length")
+    feats=a.ev("(window.__mn.map().src.chargers.data||{features:[]}).features.map(f=>f.properties)")
+    print('   ',feats)
+    check(len(feats)==1 and 'Vattenfall' in feats[0]['info'] and '22 kW' in feats[0]['info'],'laadpunt met aanbieder en vermogen')
+    print('4. flitser melden met stem')
+    pg.click('#opensettings'); pg.fill('#k-gemini','AIzaTEST'); pg.click('#savegemini'); pg.click('#closesettings'); pg.wait_for_timeout(300)
+    a.ev("window.__q.push('daar staat een flitser')"); pg.click('#moes'); pg.wait_for_timeout(3000)
+    print('   ',pg.inner_text('.moes-say') if a.vis('.moes-say') else '', '|', a.toast())
+    check('Mobiele flitser gemeld' in a.toast() or 'Gemeld' in (pg.inner_text('.moes-say') if a.vis('.moes-say') else ''),'flitser gemeld via Smiesh')
+    check(a.ev("JSON.parse(localStorage.getItem('mn_mine')||'[]').length")==1,'melding opgeslagen en op de kaart')
+    print('5. snelkoppeling naar huis')
+    a.ev("window.__mn.deepLink('moesweasley://naar/thuis')"); pg.wait_for_timeout(400)
+    check('Thuis' in a.toast(),'zonder Thuis: uitleg: '+a.toast())
+    a.ev("localStorage.setItem('mn_favs',JSON.stringify({home:{lat:52.379,lon:4.912,name:'Thuisadres'},work:null,list:[]}))")
+    if a.ev("window.__mn.st.drive"): pass
+    a.ev("window.__mn.deepLink('moesweasley://naar/thuis')"); pg.wait_for_timeout(2500)
+    check(a.ev("window.__mn.st.nav") and a.ev("window.__mn.st.dest.name")=='Thuis','route naar huis gestart')
+    print('ERR',a.errs); check(not a.errs,'geen fouten')
+    a.close()
+print('BEVINDINGEN',F)

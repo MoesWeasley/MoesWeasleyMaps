@@ -32,6 +32,8 @@ with sync_playwright() as p:
         if 'photon' in u: return r.fulfill(json={"features":[{"geometry":{"coordinates":D},"properties":{"name":"Centraal Station","city":"Amsterdam","countrycode":"NL"}}]})
         if 'interpreter' in u: return r.fulfill(json={"elements":[]})
         if 'api.pdok.nl' in u: return r.fulfill(json={"type":"FeatureCollection","features":[],"links":[]})
+        if 'brugopeningen' in u: return r.fulfill(body='<?xml version="1.0"?><payload/>',content_type='application/xml')
+        if 'buienradar' in u: return r.fulfill(body='000|12:00',content_type='text/plain')
         if 'flitsers.json' in u: return r.fulfill(json={"updated":1794370277,"cams":[{"id":"x1","lat":52.3791,"lon":4.9029,"type":"vast","max":50}]})
         if 'verkeer.json' in u: return r.fulfill(json={"updated":1794338184,"items":[{"id":"t1","t":"ongeval","lat":52.3770,"lon":4.9001}]})
         if 'api.tomtom.com/traffic/services' in u:
