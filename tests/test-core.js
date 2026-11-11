@@ -58,3 +58,11 @@ const fa = N.aheadFree(52.37, 4.9, 0, [{ lat: 52.3727, lon: 4.9 }, { lat: 52.367
 assert.ok(fa && fa.d > 280 && fa.d < 320);
 
 console.log("Alle kerntests geslaagd");
+// extra: punt op route en bord
+const pa = N.pointAt(r, 500); assert.ok(Math.abs(pa.lat - 52.3745) < 0.0002 && Math.abs(pa.lon - 4.9) < 1e-6);
+assert.deepStrictEqual(N.parseSign("A4: Den Haag, Leiden", ""), { refs: ["A4"], places: ["Den Haag", "Leiden"] });
+assert.deepStrictEqual(N.parseSign("Centrum, Station", "N227"), { refs: ["N227"], places: ["Centrum", "Station"] });
+const st2 = N.buildRoute({ legs: [{ steps: [{ maneuver: { type: "depart", location: A }, name: "X", distance: 10, duration: 1, geometry: { coordinates: [A, B] },
+  intersections: [{ bearings: [0, 90, 180], in: 2, out: 1, lanes: [{ valid: true, indications: ["right"] }] }], destinations: "A4: Den Haag" }] }] }).steps[0];
+assert.strictEqual(st2.inter.out, 1); assert.strictEqual(st2.dest, "A4: Den Haag");
+console.log("Extra kerntests geslaagd");

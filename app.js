@@ -44,10 +44,69 @@ var ICON = {
   clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>'
 };
 var MODANG = { "straight": 0, "slight right": 40, "right": 90, "sharp right": 135, "slight left": -40, "left": -90, "sharp left": -135 };
-function head(x, y, a) { /* pijlpunt in richting a (graden, 0 = omhoog) */
-  var r = a * Math.PI / 180, L = 9, s = 0.62;
+function head(x, y, a, L) { /* pijlpunt in richting a (graden, 0 = omhoog) */
+  var r = a * Math.PI / 180, s = 0.62; L = L || 9;
   var x1 = x - L * Math.sin(r - s), y1 = y + L * Math.cos(r - s), x2 = x - L * Math.sin(r + s), y2 = y + L * Math.cos(r + s);
   return '<path d="M' + x1.toFixed(1) + " " + y1.toFixed(1) + "L" + x + " " + y + "L" + x2.toFixed(1) + " " + y2.toFixed(1) + '"/>';
+}
+/* kruispunt: alle wegen dun, de weg die je neemt dik met een pijlpunt */
+function junctionSVG(s) {
+  var it = s.inter, k = s.icon && s.icon.kind;
+  if (!it || !it.bearings || it.bearings.length < 3 || it.out == null || it["in"] == null || k === "roundabout" || k === "arrive" || k === "uturn") return null;
+  var travel = (it.bearings[it["in"]] + 180) % 360, o = '<svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">';
+  function rel(b) { return ((b - travel + 540) % 360) - 180; }
+  function end(a, L) { var r = a * Math.PI / 180; return [32 + L * Math.sin(r), 34 - L * Math.cos(r)]; }
+  it.bearings.forEach(function (b, i) {
+    if (i === it["in"] || i === it.out) return;
+    var e = end(rel(b), 24); o += '<path d="M32 34L' + e[0].toFixed(1) + " " + e[1].toFixed(1) + '" stroke="rgba(255,255,255,.38)" stroke-width="6"/>';
+  });
+  var a = rel(it.bearings[it.out]), e2 = end(a, 22);
+  o += '<path d="M32 60V34L' + e2[0].toFixed(1) + " " + e2[1].toFixed(1) + '" stroke="#fff" stroke-width="6.5"/>';
+  o += '<g stroke="#fff" stroke-width="6.5">' + head(+e2[0].toFixed(1), +e2[1].toFixed(1), a) + "</g></svg>";
+  return o;
+}
+/* kleine pijl voor een rijstrook */
+function laneSVG(ind) {
+  var a = { "straight": 0, "slight right": 35, "right": 80, "sharp right": 125, "slight left": -35, "left": -80, "sharp left": -125 }[ind];
+  if (ind === "uturn") return '<path d="M14 26V12a5 5 0 0110 0v4" />' + head(24, 18, 180, 6);
+  if (a == null) a = 0;
+  var r = a * Math.PI / 180, ex = 16 + 9 * Math.sin(r), ey = 13 - 9 * Math.cos(r);
+  return '<path d="M16 28V13L' + ex.toFixed(1) + " " + ey.toFixed(1) + '"/>' + head(+ex.toFixed(1), +ey.toFixed(1), a, 6);
+}
+function lanesHTML(lanes, mod) {
+  return lanes.map(function (l) {
+    var inds = (l.indications && l.indications.length ? l.indications : ["straight"]).filter(function (x) { return x !== "none"; });
+    if (!inds.length) inds = ["straight"];
+    var pick = l.valid && inds.indexOf(mod) >= 0 ? [mod] : inds;
+    return '<span class="lane' + (l.valid ? " on" : "") + '"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">' +
+      pick.map(laneSVG).join("") + "</svg></span>";
+  }).join("");
+}
+function shieldHTML(ref) {
+  var cls = /^A/i.test(ref) ? "sa" : /^E/i.test(ref) ? "se" : /^N/i.test(ref) ? "sn" : "ss";
+  return '<span class="shield ' + cls + '">' + esc(ref.toUpperCase()) + "</span>";
+}
+function renderGuide(s, dist) {
+  var g = $("guide"), show = dist < 2000 && s.type !== "arrive";
+  var lanes = show && s.inter && s.inter.lanes && s.inter.lanes.length > 1 ? s.inter.lanes : null;
+  var sign = show && (s.dest || s.exits) ? N.parseSign(s.dest, s.ref) : null;
+  if (sign && !sign.places.length && !s.exits) sign = null;
+  if (!lanes && !sign) { g.hidden = true; document.body.classList.remove("guide"); placeAlert(); return; }
+  var key = s.startDist + "|" + !!lanes + "|" + !!sign;
+  if (g.dataset.key !== key) {
+    var arrowA = MODANG[s.mod] == null ? 0 : MODANG[s.mod];
+    g.innerHTML = (lanes ? '<div class="lanes">' + lanesHTML(lanes, s.mod || "straight") + "</div>" : "") +
+      (sign ? '<div class="sign"><div class="srow">' + (s.exits ? '<span class="exit">' + esc(s.exits.split(";")[0]) + "</span>" : "") + sign.refs.map(shieldHTML).join("") +
+        '<svg class="sarrow" viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(' + Math.max(-90, Math.min(90, arrowA)) + 'deg)"><path d="M16 28V6"/>' + head(16, 6, 0) + "</svg></div>" +
+        sign.places.slice(0, 3).map(function (p) { return '<div class="place">' + esc(p) + "</div>"; }).join("") + "</div>" : "");
+    g.dataset.key = key;
+  }
+  g.hidden = false; document.body.classList.add("guide"); placeAlert();
+}
+/* melding onder het bord/de rijstroken zetten als die zichtbaar zijn */
+function placeAlert() {
+  var g = $("guide"), a = $("alert");
+  a.style.top = !g.hidden && st.nav ? (g.getBoundingClientRect().bottom + 8) + "px" : "";
 }
 function maneuverSVG(ic) {
   var o = '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">';
@@ -143,7 +202,10 @@ function addLayers() {
   map.addSource("route", { type: "geojson", data: EMPTY, lineMetrics: true });
   map.addSource("cams", { type: "geojson", data: EMPTY });
   map.addSource("traffic", { type: "geojson", data: EMPTY });
-  var before = map.getLayer("road_label") ? "road_label" : undefined;
+  /* route boven de 3D-gebouwen, maar onder de straatnamen */
+  var ls = (map.getStyle() && map.getStyle().layers) || [], lastEx = -1, before;
+  ls.forEach(function (l, i) { if (l.type === "fill-extrusion") lastEx = i; });
+  for (var li = lastEx + 1; li < ls.length; li++) if (ls[li].type === "symbol") { before = ls[li].id; break; }
   map.addLayer({ id: "alts-case", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 16, 16], "line-opacity": .9 } }, before);
   map.addLayer({ id: "alts-line", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#b9a6ff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 10], "line-opacity": .85 } }, before);
   map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c24dff", "line-opacity": .35, "line-blur": 8, "line-width": ["interpolate", ["linear"], ["zoom"], 8, 14, 16, 34] } }, before);
@@ -251,33 +313,61 @@ function onPos(p, simulated) {
   store("lastpos", st.pos);
   $("spd").textContent = Math.round(st.speed * 3.6);
 
-  var show = { lat: p.lat, lon: p.lon }, camBearing = st.heading;
+  /* De pijl staat ALTIJD op een weg:
+     - op de route: precies op de routelijn (en hij beweegt langs de lijn, ook door bochten)
+     - naast de route of zonder route: vastgeklikt op de dichtstbijzijnde weg (OSRM "nearest") */
+  var show = null, camBearing = st.heading, along = null;
   if (st.nav && st.route && !st.rerouting) {
     var loc = N.locate(st.route, p.lat, p.lon, st.hint);
     var tol = Math.max(35, Math.min(80, (p.acc || 10) * 1.3));
     if (loc.off > tol) st.offCount++; else { st.offCount = 0; st.hint = loc.idx; }
-    /* op de route: pijl op de weg en in de richting van de weg (rustiger dan het GPS-kompas) */
-    if (loc.off < 25) { show = { lat: loc.lat, lon: loc.lon }; camBearing = loc.segBearing; }
+    if (st.offCount === 0) { show = { lat: loc.lat, lon: loc.lon }; camBearing = loc.segBearing; along = loc.along; }
     if (st.offCount >= 3 && Date.now() - st.lastReroute > 8000) reroute();
     else if (st.offCount === 0) navUpdate(loc.along);
   }
+  if (!show) show = snapRoad(p.lat, p.lon) || (anim.cur && st.nav ? null : { lat: p.lat, lon: p.lon });
+  if (!show) show = anim.cur; /* nog geen weg gevonden: blijf op de laatste plek op de weg staan */
   if (map && meMarker) {
     if (!meMarker._map) meMarker.addTo(map);
     meMarker.getElement().classList.toggle("nofix", false);
   }
   if (!gotFix) { gotFix = true; if (map && !st.dest) map.jumpTo({ center: [p.lon, p.lat], zoom: 15 }); }
-  animTo(show.lat, show.lon, camBearing);
+  animTo(show.lat, show.lon, camBearing, along);
   checkWarnings();
+}
+
+/* dichtstbijzijnde weg via OSRM; de verschuiving wordt meegenomen tot er een nieuw antwoord is */
+var near = { pt: null, at: null, t: 0, lastReq: 0, busy: false };
+function snapRoad(lat, lon) {
+  var now = Date.now();
+  if (!near.busy && now - near.lastReq > 1000) {
+    near.busy = true; near.lastReq = now;
+    var at = { lat: lat, lon: lon };
+    firstOk((CFG.routers || []).map(function (b) { return b.replace("/route/v1/", "/nearest/v1/") + lon.toFixed(6) + "," + lat.toFixed(6) + "?number=1"; }), 4000)
+      .then(function (d) {
+        var w = d && d.waypoints && d.waypoints[0];
+        if (w && w.distance < 60) { near.pt = { lat: w.location[1], lon: w.location[0] }; near.at = at; near.t = Date.now(); }
+      }).catch(function () {}).then(function () { near.busy = false; });
+  }
+  if (near.pt && now - near.t < 4000 && N.distM(lat, lon, near.at.lat, near.at.lon) < 80)
+    return { lat: lat + (near.pt.lat - near.at.lat), lon: lon + (near.pt.lon - near.at.lon) };
+  return null;
 }
 
 /* ---------- vloeiende beweging ----------
    GPS geeft ongeveer 1 positie per seconde. Pijl en kaart glijden elk beeldje (60 per seconde)
    van de vorige naar de nieuwe positie, in de tijd tussen twee posities. */
-var anim = { cur: null, from: null, to: null, rot: 0, rotFrom: 0, rotTo: 0, t0: 0, dur: 1000, last: 0, running: false, zoom: null, pitch: 0 };
+var anim = { cur: null, from: null, to: null, rot: 0, rotFrom: 0, rotTo: 0, t0: 0, dur: 1000, last: 0, running: false, zoom: null, pitch: 0,
+  aFrom: null, aTo: null, aCur: null, aRoute: null };
 function angLerp(a, b, t) { var d = ((b - a + 540) % 360) - 180; return (a + d * t + 360) % 360; }
-function animTo(lat, lon, rot) {
+function animTo(lat, lon, rot, along) {
   var now = performance.now(), gap = anim.last ? now - anim.last : 1000;
   anim.last = now;
+  /* op de route: van afstand naar afstand glijden, zodat de pijl de bocht volgt in plaats van hem af te snijden */
+  if (along != null && st.route) {
+    var ok = anim.aRoute === st.route && anim.aCur != null && along - anim.aCur > -30 && along - anim.aCur < 400;
+    anim.aFrom = ok ? anim.aCur : along; anim.aTo = along; anim.aRoute = st.route;
+  } else { anim.aFrom = anim.aTo = null; }
   anim.from = anim.cur || { lat: lat, lon: lon };
   if (anim.cur && N.distM(anim.cur.lat, anim.cur.lon, lat, lon) > 400) anim.from = { lat: lat, lon: lon }; /* grote sprong: direct */
   anim.to = { lat: lat, lon: lon };
@@ -288,8 +378,18 @@ function animTo(lat, lon, rot) {
 function frame(now) {
   if (!anim.to || !map) { anim.running = false; return; }
   var t = Math.min(1, (now - anim.t0) / anim.dur);
-  anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
-  anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
+  if (anim.aTo != null && anim.aRoute === st.route && st.route) {
+    anim.aCur = anim.aFrom + (anim.aTo - anim.aFrom) * t;
+    anim.cur = N.pointAt(st.route, anim.aCur);
+    /* richting: naar een punt 20 m verderop op de route, zacht bijgestuurd */
+    var ahead = N.pointAt(st.route, anim.aCur + 20);
+    var want = N.distM(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) > 2 ? N.bearing(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) : anim.rot;
+    anim.rot = angLerp(anim.rot, want, 0.12);
+  } else {
+    anim.aCur = null;
+    anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
+    anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
+  }
   var following = st.follow && (st.nav || st.freeFollow);
   /* tijdens navigeren staat de pijl vast op het scherm en draait de kaart eronder: geen trilling */
   var fixed = following && st.nav;
@@ -496,7 +596,7 @@ function stopNav(silent) {
   document.body.classList.remove("nav");
   $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true; $("mute").hidden = false;
   hideAlert(); keepAwake(false);
-  $("navarrow").hidden = true; $("street").hidden = true; if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
+  $("navarrow").hidden = true; $("street").hidden = true; $("guide").hidden = true; document.body.classList.remove("guide"); if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
   if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
   if (!silent) cancelRoute(); else { st.routes = []; drawRoutes(); if (destMarker) destMarker.remove(); }
 }
@@ -509,7 +609,8 @@ function navUpdate(along) {
   $("remt").textContent = N.fmtDur(remT); $("remd").textContent = N.fmtDist(remD);
   if (remD < 30 && !st.arrived) { arrive(); return; }
   var i = N.nextStepIndex(r, along), s = r.steps[i], dist = Math.max(0, s.startDist - along);
-  $("bicon").innerHTML = maneuverSVG(s.icon);
+  $("bicon").innerHTML = junctionSVG(s) || maneuverSVG(s.icon);
+  renderGuide(s, dist);
   $("bdist").textContent = N.fmtDist(dist);
   $("btext").textContent = s.type === "arrive" ? s.text : s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, "");
   var extra = (s.text.match(/ (richting .*)$/) || [])[1];
@@ -551,7 +652,7 @@ function reroute() {
   fetchRoutes(st.pos, st.dest, st.heading).then(function (routes) {
     if (!st.nav) return;
     var best = scoreRoutes(routes);
-    st.route = routes[best]; st.routes = routes; st.sel = best; st.hint = 0; st.offCount = 0; st.said = {};
+    st.route = routes[best]; st.routes = routes; st.sel = best; st.hint = 0; st.offCount = 0; st.said = {}; anim.aRoute = null;
     prepRouteWarnings(); drawRoutes();
   }).catch(function () { toast("Geen nieuwe route gevonden, ik probeer het zo weer.", true); })
     .then(function () { st.rerouting = false; });
@@ -757,7 +858,7 @@ function prepRouteWarnings() {
 var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
   var a = $("alert"); a.className = kind === "traffic" ? "traffic" : ""; if (pulse) a.classList.add("pulse");
-  $("atitle").textContent = title; $("atext").textContent = text; $("aicon").innerHTML = icon; a.hidden = false;
+  $("atitle").textContent = title; $("atext").textContent = text; $("aicon").innerHTML = icon; a.hidden = false; placeAlert();
 }
 function hideAlert() { $("alert").hidden = true; alertFor = null; $("limit").hidden = true; $("speed").classList.remove("over"); }
 function checkWarnings() {

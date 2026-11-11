@@ -189,6 +189,24 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 #street{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 92px);z-index:6;max-width:62vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   padding:8px 16px;border-radius:999px;font-weight:700;font-size:15px;color:var(--ink);
   background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow)}
+/* rijstroken en bord onder de afslagbalk */
+#guide{position:fixed;left:10px;right:10px;top:calc(var(--st) + 118px);z-index:6;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.lanes{display:flex;justify-content:center;gap:4px;padding:6px 10px;border-radius:20px;background:linear-gradient(180deg,rgba(40,30,110,.62),rgba(40,30,110,.48));
+  -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.35);box-shadow:0 8px 22px rgba(60,40,140,.25),inset 0 1px 0 rgba(255,255,255,.3)}
+.lane{width:40px;height:40px;display:grid;place-items:center;color:rgba(255,255,255,.32);border-radius:12px}
+.lane+.lane{border-left:2px dashed rgba(255,255,255,.25);border-radius:0}
+.lane.on{color:#fff;background:linear-gradient(180deg,rgba(123,92,255,.9),rgba(255,79,163,.85));border-radius:12px;box-shadow:0 0 14px rgba(255,79,163,.55)}
+.lane.on+.lane,.lane+.lane.on{border-left-color:transparent}
+.lane svg{width:30px;height:30px}
+.sign{align-self:center;min-width:62%;max-width:100%;background:linear-gradient(180deg,#2a63c9,#1b4aa3);color:#fff;border:3px solid #fff;border-radius:14px;padding:8px 14px 10px;
+  box-shadow:0 10px 26px rgba(20,40,120,.4),0 0 0 1px rgba(27,74,163,.6);font-family:"Arial Narrow",Arial,system-ui,sans-serif}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.shield{font-weight:800;font-size:16px;padding:1px 8px;border-radius:5px;border:2px solid #fff;line-height:1.25}
+.sa{background:#e2001a;color:#fff}.sn{background:#ffd200;color:#111;border-color:#111}.se{background:#0a8f3c;color:#fff}.ss{background:#fff;color:#1b4aa3}
+.exit{background:#fff;color:#1b4aa3;font-weight:800;font-size:15px;border-radius:5px;padding:1px 7px}
+.sarrow{width:26px;height:26px;margin-left:auto}
+.place{font-size:20px;font-weight:700;letter-spacing:.01em;line-height:1.25}
+body.guide #then{display:none}
 /* glazen pijl */
 .me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
   -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
@@ -229,6 +247,7 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
     <div id="broad"></div>
   </div>
 </div>
+<div id="guide" hidden></div>
 <div id="then" hidden><span>Daarna</span><span id="thenic"></span></div>
 <div id="navbar" hidden>
   <div class="eta"><b class="arr" id="eta">--:--</b><span id="remt">– min</span><span id="remd">– km</span></div>
