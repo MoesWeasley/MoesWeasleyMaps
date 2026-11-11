@@ -245,6 +245,7 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 #moes.a-hop .m-live{animation:mHop .45s ease-in-out 3}
 #moes .px{opacity:0;transition:opacity .25s ease}
 #moes[data-s=yum] .f-happy,#moes[data-s=yum] .m-blush{opacity:1}
+#moes[data-s=yawn] .f-sleepy,#moes[data-s=yawn] .m-talk,#moes[data-s=rest] .f-sleepy,#moes[data-s=rest] .m-sleepy{opacity:1}
 #moes.a-eat .p-burger,#moes.a-drink .p-drink,#moes.a-game .p-game{opacity:1}
 #moes.a-eat .mm,#moes.a-drink .mm{opacity:0!important}
 #moes.a-eat .m-talk{opacity:1!important}
@@ -295,6 +296,8 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 @keyframes mScratch{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
 #moes.a-yawn .m-sleepy,#moes.a-yawn .m-shock{opacity:0}
 #moes.a-yawn .m-talk{opacity:1}
+#moes.a-yawn .m-talkmouth{animation:mYawn 1.7s ease-in-out}
+@keyframes mYawn{0%,100%{transform:scale(.8,.3)}35%,70%{transform:scale(1.15,1.45)}}
 #moes.a-giggle .m-live{animation:mHop .5s ease-in-out 3}
 #moes.a-wake .m-live{animation:mJolt .9s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes mJolt{0%{transform:translateY(4px) scale(1,.92)}18%{transform:translateY(-14px) scale(.96,1.06) rotate(-4deg)}32%{transform:translateY(-10px) rotate(5deg)}46%{transform:translateY(-6px) rotate(-4deg)}62%{transform:translateY(-2px) rotate(2deg)}100%{transform:none}}

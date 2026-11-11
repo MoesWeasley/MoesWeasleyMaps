@@ -9,11 +9,16 @@
   function arm(side, x) {
     /* arm hangt vanaf de schouder naar beneden; de buitenste groep krijgt de houding, de binnenste de beweging (zwaaien) */
     return '<g class="m-arm' + side + '"><g class="m-arm' + side + 'i">' +
-      '<path d="M' + x + ' 85v8" stroke="#8d70f6" stroke-width="9" stroke-linecap="round"/>' +
-      '<path d="M' + x + ' 79v14" stroke="#ad95ff" stroke-width="7" stroke-linecap="round"/>' +
+      /* arm als één gladde, taps toelopende vorm in de kleur van het lijf; alleen naar het pootje toe een zachte rand */
+      '<path d="' + limb(x, 1) + '" fill="url(#marmEdge)"/>' +
+      '<path d="' + limb(x, 0) + '" fill="url(#marm)"/>' +
       '<g class="m-finger' + side + '"><path d="M' + x + ' 97v8" stroke="#8a6bff" stroke-width="5.4" stroke-linecap="round"/><path d="M' + x + ' 97v8" stroke="#fff4fb" stroke-width="3.4" stroke-linecap="round"/></g>' +
       '<circle cx="' + x + '" cy="95" r="5.2" fill="#fff4fb" stroke="#8a6bff" stroke-width="1.4"/>' +
       "</g></g>";
+  }
+  function limb(x, g) { /* g = hoeveel groter (voor de rand) */
+    var t = 4.4 + g, b = 3.4 + g, y1 = 79, y2 = 93;
+    return "M" + (x - t) + " " + y1 + "L" + (x - b) + " " + y2 + "A" + b + " " + b + " 0 0 0 " + (x + b) + " " + y2 + "L" + (x + t) + " " + y1 + "A" + t + " " + t + " 0 0 0 " + (x - t) + " " + y1 + "Z";
   }
   function foot(side, x) {
     return '<g class="m-foot' + side + '"><ellipse cx="' + x + '" cy="107" rx="7.5" ry="4.6" fill="#a58cff"/>' +
@@ -48,6 +53,9 @@
     '<linearGradient id="mfur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cdb9ff"/><stop offset="1" stop-color="#8a6bff"/></linearGradient>' +
     '<linearGradient id="mfur2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b9a1ff"/><stop offset="1" stop-color="#7656f0"/></linearGradient>' +
     '<linearGradient id="mfurB" gradientUnits="userSpaceOnUse" x1="0" y1="68" x2="0" y2="108"><stop offset="0" stop-color="#cdb9ff"/><stop offset="1" stop-color="#8a6bff"/></linearGradient>' +
+    '<linearGradient id="marm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bba4ff"/><stop offset="1" stop-color="#a083ff"/></linearGradient>' +
+    '<linearGradient id="marmEdge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7f62f2" stop-opacity="0"/><stop offset=".45" stop-color="#7f62f2" stop-opacity="0"/><stop offset="1" stop-color="#7f62f2" stop-opacity=".85"/></linearGradient>' +
+    '<radialGradient id="mshould"><stop offset="0" stop-color="#bca6ff"/><stop offset=".6" stop-color="#bca6ff"/><stop offset="1" stop-color="#bca6ff" stop-opacity="0"/></radialGradient>' +
     '<radialGradient id="mbelly" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#fffafd"/><stop offset="1" stop-color="#f6e6ff"/></radialGradient>' +
     '</defs>' +
     '<g class="m-live"><g class="m-all">' +
@@ -78,7 +86,7 @@
       '</g>' +
       PROPS +
       arm("L", 37) + arm("R", 63) +
-      '<g class="m-shoulders" fill="url(#mfurB)"><circle cx="37" cy="79" r="6.6"/><circle cx="63" cy="79" r="6.6"/></g>' +
+      '<g class="m-shoulders" fill="url(#mshould)"><circle cx="37.6" cy="79.6" r="6.2"/><circle cx="62.4" cy="79.6" r="6.2"/></g>' +
       '<g class="mx x-sweat"><path d="M80 30q4.5 7 0 10.5q-4.5-3.5 0-10.5z" fill="#7fd3ff" stroke="#fff" stroke-width="1"/></g>' +
       '<g class="mx x-alarm"><text x="80" y="16" font-size="16" font-weight="900" fill="#ff3d6e" font-family="system-ui" stroke="#fff" stroke-width="2.6" paint-order="stroke">!!</text></g>' +
       '<g class="mx x-sparks"><path d="M10 26l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#ffd166"/><path d="M88 10l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" fill="#ff8fd0"/><circle cx="90" cy="40" r="2.3" fill="#7ee6a8"/><circle cx="8" cy="52" r="1.8" fill="#8fd0ff"/></g>' +
@@ -99,12 +107,12 @@
   var ACTS = {
     wave:    { pose: { L: 14, R: -150, head: -5, lean: -2, y: -1, look: [1.4, -0.6] }, cls: "a-wave", ms: 1900, face: "point" },
     scratch: { pose: { L: 172, R: -16, head: 8, lean: 2, y: 0, look: [-1.2, -1] }, cls: "a-scratch", ms: 1800, face: "idle" },
-    yawn:    { pose: { L: 168, R: -168, head: -6, lean: 0, y: -3, look: [0, 0] }, cls: "a-yawn", ms: 1700, face: "sleepy" },
+    yawn:    { pose: { L: 168, R: -168, head: -6, lean: 0, y: -3, look: [0, 0] }, cls: "a-yawn", ms: 1700, face: "yawn" },
     look:    { pose: null, cls: "a-look", ms: 2600, face: null },
     giggle:  { pose: { L: 120, R: -120, head: 0, lean: 0, y: -3, look: [0, 0] }, cls: "a-giggle", ms: 1500, face: "happy" },
     wake:    { pose: { L: 158, R: -158, head: -7, lean: 0, y: -9, look: [0, -1.4] }, cls: "a-wake", ms: 1300, face: "shock" },
-    stretch: { pose: { L: 172, R: -172, head: -4, lean: 0, y: -4, look: [0, 0] }, cls: "a-stretch", ms: 2200, face: "sleepy" },
-    sneeze:  { pose: { L: 40, R: -40, head: 10, lean: 3, y: 1, look: [0, 0] }, cls: "a-sneeze", ms: 1500, face: "sleepy" },
+    stretch: { pose: { L: 172, R: -172, head: -4, lean: 0, y: -4, look: [0, 0] }, cls: "a-stretch", ms: 2200, face: "rest" },
+    sneeze:  { pose: { L: 40, R: -40, head: 10, lean: 3, y: 1, look: [0, 0] }, cls: "a-sneeze", ms: 1500, face: "rest" },
     hop:     { pose: { L: 150, R: -150, head: -3, lean: 0, y: -3, look: [0, -0.8] }, cls: "a-hop", ms: 1300, face: "happy", feet: "kick" },
     tickle:  { pose: { L: 110, R: -110, head: 0, lean: 0, y: -2, look: [0, 0] }, cls: "a-giggle", ms: 2200, face: "happy", feet: "kick" },
     eat:     { pose: { L: -168, R: 168, head: 2, lean: 0, y: 0, look: [0, 1] }, cls: "a-eat", ms: 4600, face: "yum", hold: true },

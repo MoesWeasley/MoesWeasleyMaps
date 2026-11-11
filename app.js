@@ -1497,9 +1497,10 @@ function moesLine(state, dir) {
   return null;
 }
 /* tikken op Moes */
-var TAPS = 0, tapT = null, moesAwakeUntil = 0;
+var TAPS = 0, tapT = null, moesAwakeUntil = 0, moesTapAt = 0;
 function moesTap() {
   if (!moes) return;
+  moesTapAt = Date.now(); /* na aanraken even geen gapen/uitrekken: hij is juist wakker en vrolijk */
   TAPS++; clearTimeout(tapT); tapT = setTimeout(function () { TAPS = 0; }, 2500);
   var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Smiesh.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
   if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
@@ -1521,8 +1522,9 @@ function moesTap() {
 function moesIdle() {
   setTimeout(moesIdle, 6000 + Math.random() * 7000);
   if (!moes || !S.moes || document.hidden) return;
-  if (moes.state === "sleepy") { if (Math.random() < 0.3) moes.play("yawn"); return; }
-  if (moes.state !== "idle") return;
+  if (moes.state === "sleepy") return; /* slapend: alleen rustig ademen, geen losse acties */
+  if (moes.state !== "idle" || Date.now() - moesTapAt < 12000) return;
+  var fresh = Date.now() - moesTapAt < 120000;
   var late = isDark(), driving = st.speed > 3;
   var acts = ["look", "look", "wave", "scratch", "yawn", "look"];
   if (late) acts.push("yawn", "yawn");          /* 's avonds vaker gapen */
@@ -1530,6 +1532,7 @@ function moesIdle() {
   if (Math.random() < 0.06) acts = ["sneeze"]; /* heel soms niezen */
   /* stilstaan of rustig rijden: tijd voor een hapje, drankje of een spelletje */
   if (!st.nav || !st.nextMan || st.nextMan.dist > 300) { acts.push("drink"); if (!driving) acts.push("eat", "game", "game"); else acts.push("eat"); }
+  if (fresh) acts = acts.filter(function (x) { return x !== "yawn" && x !== "stretch"; });
   var a = acts[Math.floor(Math.random() * acts.length)];
   if (!moes.play(a)) return;
   if (a === "eat") { moes.say(["Mmm, hamburger!", "Even een hapje…", "Smikkel smikkel"][Math.floor(Math.random() * 3)], 1800); setTimeout(function () { if (moes.act === null && moes.state === "idle") moes.say("Lekker!", 1300); }, 4800); }
