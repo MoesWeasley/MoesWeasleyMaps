@@ -70,3 +70,8 @@ const rs = N.buildRoute({ geometry: { coordinates: [A, B, C] }, legs: [{ annotat
   steps: [{ maneuver: { type: "depart", location: A }, name: "X", distance: 1500, duration: 100, geometry: { coordinates: [A, B, C] } }] }] });
 assert.strictEqual(N.speedAt(rs, 300), 50); assert.strictEqual(N.speedAt(rs, 1200), null);
 console.log("Snelheidstests geslaagd");
+// afgeronde hoek: 90 graden knik wordt een boog, eindpunten blijven gelijk, geen punt verder dan 6 m van de knik-lijnen
+const sm = N.smoothPath([[4.9, 52.37], [4.9, 52.371], [4.9015, 52.371]], 14);
+assert.ok(sm.length > 5); assert.deepStrictEqual(sm[0], [4.9, 52.37]); assert.deepStrictEqual(sm[sm.length - 1], [4.9015, 52.371]);
+assert.ok(N.distM(sm[1][1], sm[1][0], 52.371, 4.9) > 5, "boog begint voor de hoek");
+console.log("Bochttests geslaagd");

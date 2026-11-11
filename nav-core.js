@@ -167,7 +167,9 @@
         ms = { cum: oc, sp: sp };
       }
     }
-    return { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, ms: ms, raw: osrm };
+    var route = { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, ms: ms, raw: osrm };
+    route.smooth = withCum(smoothPath(coords, 14));
+    return route;
   }
 
   /* resterende tijd: som van de stappen vanaf positie, deelstap naar verhouding */
@@ -210,6 +212,44 @@
     var segLen = route.cum[b.i + 1] - route.cum[b.i];
     return { off: b.d, along: route.cum[b.i] + segLen * b.t, idx: b.i, lat: b.lat, lon: b.lon,
       segBearing: bearing(c[b.i][1], c[b.i][0], c[b.i + 1][1], c[b.i + 1][0]) };
+  }
+
+  /* knikken afronden: elke hoek > 12 graden wordt een vloeiende boog (straal tot R meter) */
+  function smoothPath(coords, R) {
+    R = R || 14;
+    if (coords.length < 3) return coords.slice();
+    var lat0 = coords[0][1], lon0 = coords[0][0], kx = Math.cos(lat0 * RAD) * 111320, ky = 110540;
+    var P = coords.map(function (c) { return [(c[0] - lon0) * kx, (c[1] - lat0) * ky]; });
+    var out = [P[0]];
+    for (var i = 1; i < P.length - 1; i++) {
+      var a = P[i - 1], b = P[i], c = P[i + 1];
+      var d1x = b[0] - a[0], d1y = b[1] - a[1], d2x = c[0] - b[0], d2y = c[1] - b[1];
+      var l1 = Math.sqrt(d1x * d1x + d1y * d1y), l2 = Math.sqrt(d2x * d2x + d2y * d2y);
+      if (l1 < 0.5 || l2 < 0.5) { out.push(b); continue; }
+      d1x /= l1; d1y /= l1; d2x /= l2; d2y /= l2;
+      var ang = Math.acos(Math.max(-1, Math.min(1, d1x * d2x + d1y * d2y)));
+      if (ang < 0.21) { out.push(b); continue; }
+      var t = Math.min(R * Math.tan(ang / 2), 0.45 * Math.min(l1, l2));
+      var s0 = [b[0] - d1x * t, b[1] - d1y * t], e0 = [b[0] + d2x * t, b[1] + d2y * t];
+      var n = Math.max(4, Math.min(14, Math.round(ang * 9)));
+      for (var k = 0; k <= n; k++) { /* kwadratische bezier: start -> hoekpunt -> eind */
+        var u = k / n, w0 = (1 - u) * (1 - u), w1 = 2 * u * (1 - u), w2 = u * u;
+        out.push([w0 * s0[0] + w1 * b[0] + w2 * e0[0], w0 * s0[1] + w1 * b[1] + w2 * e0[1]]);
+      }
+    }
+    out.push(P[P.length - 1]);
+    return out.map(function (p) { return [lon0 + p[0] / kx, lat0 + p[1] / ky]; });
+  }
+  function withCum(coords) {
+    var cum = [0];
+    for (var i = 1; i < coords.length; i++) cum.push(cum[i - 1] + distM(coords[i - 1][1], coords[i - 1][0], coords[i][1], coords[i][0]));
+    return { coords: coords, cum: cum };
+  }
+  /* punt op de afgeronde lijn; "along" is in meters van de echte route en wordt naar verhouding omgerekend */
+  function smoothAt(route, along) {
+    var sm = route.smooth; if (!sm) return pointAt(route, along);
+    var ratio = sm.cum[sm.cum.length - 1] / Math.max(1, route.cum[route.cum.length - 1]);
+    return pointAt(sm, along * ratio);
   }
 
   /* punt op de route op een bepaalde afstand vanaf het begin */
@@ -320,7 +360,7 @@
     distM: distM, bearing: bearing, angleDiff: angleDiff, instruction: instruction,
     fmtDist: fmtDist, sayDist: sayDist, fmtDur: fmtDur, roundDist: roundDist,
     buildRoute: buildRoute, remainingTime: remainingTime, locate: locate,
-    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, speedAt: speedAt, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree
+    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, speedAt: speedAt, smoothPath: smoothPath, smoothAt: smoothAt, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.NavCore = api;
 })(this);

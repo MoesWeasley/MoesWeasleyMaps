@@ -373,15 +373,19 @@ function animTo(lat, lon, rot, along) {
   if (!anim.running) { anim.running = true; requestAnimationFrame(frame); }
 }
 function frame(now) {
-  if (!anim.to || !map) { anim.running = false; return; }
+  if (!anim.to || !map) { anim.running = false; anim.lastFrame = 0; return; }
   var t = Math.min(1, (now - anim.t0) / anim.dur);
   if (anim.aTo != null && anim.aRoute === st.route && st.route) {
     anim.aCur = anim.aFrom + (anim.aTo - anim.aFrom) * t;
-    anim.cur = N.pointAt(st.route, anim.aCur);
-    /* richting: naar een punt 20 m verderop op de route, zacht bijgestuurd */
-    var ahead = N.pointAt(st.route, anim.aCur + 20);
+    /* over de afgeronde lijn, zodat de pijl een boog rijdt in plaats van een knik */
+    anim.cur = N.smoothAt(st.route, anim.aCur);
+    /* richting: naar een punt verderop (verder bij hogere snelheid), zodat de kaart al vóór de bocht indraait */
+    var look = Math.max(18, Math.min(60, st.speed * 2.2));
+    var ahead = N.smoothAt(st.route, anim.aCur + look);
     var want = N.distM(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) > 2 ? N.bearing(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) : anim.rot;
-    anim.rot = angLerp(anim.rot, want, 0.12);
+    /* even snel draaien op elk toestel: tijdsafhankelijk bijsturen (halfwaardetijd ~0,25 s) */
+    var dtf = anim.lastFrame ? Math.min(0.1, (now - anim.lastFrame) / 1000) : 0.016;
+    anim.rot = angLerp(anim.rot, want, 1 - Math.exp(-dtf / 0.36));
   } else {
     anim.aCur = null;
     anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
@@ -407,7 +411,8 @@ function frame(now) {
     map.jumpTo(cam);
   } else { anim.zoom = null; anim.pitch = map.getPitch ? map.getPitch() : 0; }
   /* blijven lopen zolang we nog onderweg zijn naar de laatste positie, of tijdens navigeren */
-  if (t < 1 || (st.nav && following)) requestAnimationFrame(frame); else anim.running = false;
+  anim.lastFrame = now;
+  if (t < 1 || (st.nav && following)) requestAnimationFrame(frame); else { anim.running = false; anim.lastFrame = 0; }
 }
 
 /* ---------- zoeken ---------- */
@@ -553,9 +558,10 @@ function renderAlts() {
 function selectRoute(i) { st.sel = i; renderAlts(); drawRoutes(); }
 function drawRoutes() {
   var alts = [], main = EMPTY;
-  if (st.nav && st.route) main = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: st.route.coords } }] };
+  function line(r) { return (r.smooth && r.smooth.coords) || r.coords; }
+  if (st.nav && st.route) main = { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line(st.route) } }] };
   else st.routes.forEach(function (r, i) {
-    var f = { type: "Feature", properties: { i: i }, geometry: { type: "LineString", coordinates: r.coords } };
+    var f = { type: "Feature", properties: { i: i }, geometry: { type: "LineString", coordinates: line(r) } };
     if (i === st.sel) main = { type: "FeatureCollection", features: [f] }; else alts.push(f);
   });
   setData("alts", { type: "FeatureCollection", features: alts });
