@@ -133,8 +133,8 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 
 /* ======== Glass-stijl (zoals Apple Liquid Glass) ======== */
 :root{
-  --g-bg:rgba(255,255,255,.52);--g-bg-strong:rgba(255,255,255,.68);
-  --g-blur:blur(26px) saturate(190%);
+  --g-bg:rgba(255,255,255,.30);--g-bg-strong:rgba(255,255,255,.46);
+  --g-blur:blur(22px) saturate(200%);
   --g-edge:rgba(255,255,255,.7);
   --g-shine:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.12) 45%,rgba(255,255,255,.05) 100%);
   --g-shadow:0 10px 34px rgba(60,40,140,.20),0 2px 6px rgba(60,40,140,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 1px rgba(255,255,255,.35);
@@ -150,18 +150,18 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 .res:active{background:rgba(255,255,255,.5)}
 .grab{background:rgba(22,23,61,.18)}
 /* gekleurd glas: afslagbalk en melding */
-#banner{background:linear-gradient(120deg,rgba(123,92,255,.78),rgba(194,77,255,.72) 50%,rgba(255,79,163,.70) 80%,rgba(255,154,60,.70));
+#banner{background:linear-gradient(120deg,rgba(123,92,255,.58),rgba(194,77,255,.52) 50%,rgba(255,79,163,.50) 80%,rgba(255,154,60,.50));
   -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.45);border-radius:28px;
   box-shadow:0 12px 36px rgba(123,92,255,.35),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 1px rgba(255,255,255,.2)}
 #banner::before,#alert::before,.fab.report::before,.big.go::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
   background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,0) 50%)}
 #banner .ic{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);border-radius:18px}
 #then{background:linear-gradient(rgba(75,47,214,.55),rgba(75,47,214,.55));color:#fff;border-color:rgba(255,255,255,.4);border-top:0}
-#alert{background:linear-gradient(120deg,rgba(255,61,110,.82),rgba(255,122,60,.80));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+#alert{background:linear-gradient(120deg,rgba(255,61,110,.64),rgba(255,122,60,.60));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
   border:1px solid rgba(255,255,255,.5);border-radius:28px}
-#alert.traffic{background:linear-gradient(120deg,rgba(255,154,0,.80),rgba(255,201,60,.78))}
+#alert.traffic{background:linear-gradient(120deg,rgba(255,154,0,.62),rgba(255,201,60,.58))}
 #alert .ai{background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.45)}
-.fab.report{position:relative;background:linear-gradient(135deg,rgba(123,92,255,.85),rgba(255,79,163,.85));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+.fab.report{position:relative;background:linear-gradient(135deg,rgba(123,92,255,.66),rgba(255,79,163,.66));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
   border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 28px rgba(194,77,255,.35),inset 0 1px 0 rgba(255,255,255,.7)}
 .big{position:relative;border-radius:999px}
 .big.go{border:1px solid rgba(255,255,255,.5);box-shadow:0 10px 26px rgba(194,77,255,.38),inset 0 1px 0 rgba(255,255,255,.6)}
@@ -175,13 +175,23 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 .set{border-top-color:rgba(22,23,61,.08)}
 .sw{background:rgba(22,23,61,.14);box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
 .type{position:relative;border:1px solid rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px rgba(60,40,140,.18)}
-#toast{background:rgba(29,27,58,.62);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.18);border-radius:999px}
+#toast{background:rgba(29,27,58,.5);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.18);border-radius:999px}
 #toast.err{background:rgba(239,60,90,.78)}
 #scrim{background:rgba(20,16,60,.12)}
 #speed{border-width:1px}
 #speed.over{border:3px solid var(--err)}
 #limit{box-shadow:0 6px 18px rgba(239,60,90,.3)}
 #banner,#alert{position:fixed}
+#banner,#alert:not(.traffic){text-shadow:0 1px 3px rgba(60,20,120,.35)}
+#navbar .eta span,.res small,.sheet .sub{color:#4b4f80}
+/* glazen pijl */
+.me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
+  -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
+  border:1.5px solid rgba(255,255,255,.85);box-shadow:0 8px 22px rgba(60,40,140,.35),inset 0 1px 1px rgba(255,255,255,.95),inset 0 -2px 6px rgba(123,92,255,.18)}
+.me{width:42px;height:42px;display:grid;place-items:center}
+.me svg{width:30px;height:30px;filter:drop-shadow(0 2px 3px rgba(60,40,140,.4))}
+#navarrow{display:grid;place-items:center}
+#navarrow svg{width:40px;height:40px;filter:drop-shadow(0 3px 4px rgba(60,40,140,.45))}
 </style>
 </head>
 <body>
@@ -220,7 +230,7 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
   <button class="circle" id="navmute" aria-label="Stem aan/uit"></button>
   <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
-<div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><circle cx="20" cy="20" r="17" fill="#fff"/><path d="M20 6l9 24-9-5-9 5z" fill="url(#ng)"/></svg></div>
+<div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#ng)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
 <div id="speed"><b id="spd">0</b><small>km/u</small></div>
 <div id="limit" hidden></div>
 <button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>

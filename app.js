@@ -107,7 +107,7 @@ function initMap() {
     center: last ? [last.lon, last.lat] : [5.29, 52.13], zoom: last ? 14 : 7, pitchWithRotate: true, maxPitch: 70
   });
   map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-  map.on("load", function () { mapReady = true; addLayers(); drawAll(); });
+  map.on("load", function () { mapReady = true; styleMap(); addLayers(); drawAll(); });
   map.on("error", function (e) { if (!mapReady && e && e.error && /style|fetch/i.test(String(e.error.message))) toast("Kaartstijl niet bereikbaar.", true); });
   ["dragstart", "pitchstart", "rotatestart"].forEach(function (ev) {
     map.on(ev, function (e) { if (e.originalEvent && st.follow) { st.follow = false; $("recenter").hidden = !st.nav && !st.pos; } });
@@ -125,7 +125,7 @@ function initMap() {
   map.on("contextmenu", function (e) { if (!st.nav) chooseDest({ lat: e.lngLat.lat, lon: e.lngLat.lng, name: "Gekozen punt", sub: e.lngLat.lat.toFixed(5) + ", " + e.lngLat.lng.toFixed(5) }); });
 
   var el = document.createElement("div"); el.className = "me nofix";
-  el.innerHTML = '<svg viewBox="0 0 40 40"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><circle cx="20" cy="20" r="17" fill="#fff"/><path d="M20 6l9 24-9-5-9 5z" fill="url(#mg)"/></svg>';
+  el.innerHTML = '<svg viewBox="0 0 40 40"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#mg)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   meMarker = new maplibregl.Marker({ element: el, rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(last ? [last.lon, last.lat] : [5.29, 52.13]);
   if (last) meMarker.addTo(map);
 }
@@ -140,19 +140,49 @@ var TRAF = {
 };
 function addLayers() {
   map.addSource("alts", { type: "geojson", data: EMPTY });
-  map.addSource("route", { type: "geojson", data: EMPTY });
+  map.addSource("route", { type: "geojson", data: EMPTY, lineMetrics: true });
   map.addSource("cams", { type: "geojson", data: EMPTY });
   map.addSource("traffic", { type: "geojson", data: EMPTY });
   var before = map.getLayer("road_label") ? "road_label" : undefined;
   map.addLayer({ id: "alts-case", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#6e6aa8", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 6, 16, 14], "line-opacity": .5 } }, before);
   map.addLayer({ id: "alts-line", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c9c3ff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 10] } }, before);
-  map.addLayer({ id: "route-case", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#3b1fb8", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 16, 18] } }, before);
-  map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#7b5cff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 16, 12] } }, before);
+  map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c24dff", "line-opacity": .35, "line-blur": 8, "line-width": ["interpolate", ["linear"], ["zoom"], 8, 14, 16, 34] } }, before);
+  map.addLayer({ id: "route-case", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 16, 18] } }, before);
+  map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#7b5cff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 16, 12],
+    "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7b5cff", 0.45, "#c24dff", 0.8, "#ff4fa3", 1, "#ff9a3c"] } }, before);
   map.addLayer({ id: "traffic-c", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 15, 9], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
   map.addLayer({ id: "cams-c", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 15, 10], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2.5 } });
   map.on("click", "alts-line", function (e) { var f = e.features && e.features[0]; if (f && !st.nav) selectRoute(f.properties.i); });
   map.on("click", "cams-c", function (e) { var p = e.features[0].properties; toast(camLabel(p.type) + (p.max ? " · " + p.max + " km/u" : "") + (p.own ? " · jouw melding" : p.community ? " · gemeld" : "")); });
   map.on("click", "traffic-c", function (e) { var p = e.features[0].properties; toast((TRAF[p.t] || TRAF.overig).l); });
+}
+/* kaart in de kleuren van de app: zachte pastels, 3D-gebouwen en een lucht aan de horizon */
+function styleMap() {
+  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false;
+  function paint(id, k, v) { try { map.setPaintProperty(id, k, v); } catch (e) {} }
+  layers.forEach(function (l) {
+    var id = l.id.toLowerCase(), t = l.type;
+    if (t === "background") paint(l.id, "background-color", "#f6f3ff");
+    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) paint(l.id, "fill-color", "#8fd0ff");
+    else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#8fd0ff");
+    else if (t === "fill" && /park|wood|forest|grass|meadow|landcover|scrub|green|garden/.test(id)) paint(l.id, "fill-color", "#bdf0d2");
+    else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", "#e4daff"); paint(l.id, "fill-extrusion-opacity", 0.82); }
+    else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#e9e3fb");
+    else if (t === "fill" && /residential|landuse|commercial|industrial/.test(id)) paint(l.id, "fill-color", "#f0ebfd");
+    else if (t === "line" && /motorway|trunk/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffd59e");
+    else if (t === "line" && /primary|secondary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#fff0c4");
+  });
+  var src = map.getSource("openmaptiles") ? "openmaptiles" : null;
+  if (!has3d && src) {
+    try {
+      map.addLayer({ id: "mw-3d", type: "fill-extrusion", source: src, "source-layer": "building", minzoom: 14,
+        paint: { "fill-extrusion-color": "#e4daff", "fill-extrusion-opacity": 0.82,
+          "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8], "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0] } });
+    } catch (e) {}
+  }
+  if (typeof map.setSky === "function") {
+    try { map.setSky({ "sky-color": "#b6a4ff", "horizon-color": "#ffd3ec", "fog-color": "#f6f3ff", "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.35 }); } catch (e) {}
+  }
 }
 function setData(id, fc) { if (mapReady && map.getSource(id)) map.getSource(id).setData(fc); }
 function drawAll() { drawCams(); drawTraffic(); drawRoutes(); }
