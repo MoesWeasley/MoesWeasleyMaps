@@ -343,6 +343,44 @@ body.guide #then{display:flex}
 #limit{left:62px;bottom:calc(var(--sb) + 150px);width:36px;height:36px;border-width:4px;font-size:14px;letter-spacing:-.03em;color:#16173d}
 body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 #speed.over b{color:var(--err)}
+
+
+/* segmentknoppen, routegereedschap, tussenstops */
+.seg{display:inline-flex;background:rgba(123,92,255,.12);border-radius:999px;padding:3px;gap:2px;flex:none}
+.seg button{padding:6px 10px;border-radius:999px;font-size:13px;font-weight:650;color:var(--p1)}
+.seg button.on{background:var(--grad);color:#fff;box-shadow:0 3px 10px rgba(194,77,255,.3)}
+.opt{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:15px}
+.sw.sm{width:42px;height:26px}.sw.sm::after{width:20px;height:20px}.sw.sm:checked::after{left:19px}
+.row.tools{margin:0 0 12px;flex-wrap:wrap;align-items:center}
+#favpick{display:inline-flex;gap:6px}
+#stops{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+#stops:empty{display:none}
+.stop{display:inline-flex;align-items:center;gap:6px;padding:6px 6px 6px 10px;border-radius:999px;font-size:13px;font-weight:650;background:rgba(123,92,255,.12);color:var(--ink)}
+.stop b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#fff;font-size:11px}
+.stop button{width:22px;height:22px;border-radius:50%;background:rgba(22,23,61,.1);font-size:13px;line-height:1}
+/* spaarstand: doorlopende CSS-animaties stil */
+body.saver #moes .m-live,body.saver #moes .m-tail,body.saver #moes .zz,body.saver .x-sparks>*{animation-play-state:paused}
+/* ======== Nachtmodus: donker glas, zachte kleuren ======== */
+body.dark{--ink:#eceeff;--mute:#b4b7e6;--bg:#0f0d24;--card:#1f1b3d;--hair:rgba(255,255,255,.12);
+  --g-bg:rgba(28,22,66,.48);--g-bg-strong:rgba(28,22,66,.66);--g-edge:rgba(255,255,255,.16);
+  --g-shine:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.03) 45%,rgba(255,255,255,0) 100%);
+  --g-shadow:0 10px 34px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 1px rgba(255,255,255,.05)}
+body.dark{background:#0f0d24}
+body.dark #navbar .eta span,body.dark .res small,body.dark .sheet .sub{color:#b4b7e6}
+body.dark .alt{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);box-shadow:none}
+body.dark .alt.sel{background:rgba(123,92,255,.22);border-color:rgba(160,135,255,.7)}
+body.dark .big.ghost,body.dark .small{background:rgba(160,135,255,.16);color:#c9b8ff;border-color:rgba(255,255,255,.14)}
+body.dark .key{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#eceeff}
+body.dark .sw{background:rgba(255,255,255,.16)}
+body.dark .res .pin.recent{background:rgba(160,135,255,.2);color:#c9b8ff}
+body.dark .circle{background:rgba(160,135,255,.16);color:#c9b8ff}
+body.dark .circle.red{background:rgba(239,60,90,.22);color:#ff8fa3}
+body.dark #banner{background:linear-gradient(120deg,rgba(90,60,220,.62),rgba(150,50,200,.55) 50%,rgba(200,50,130,.5) 80%,rgba(210,110,40,.48))}
+body.dark #limit{background:#fff;color:#16173d}
+body.dark .moes-say{background:rgba(40,32,90,.88);color:#f0ecff;border-color:rgba(255,255,255,.15)}
+body.dark #recenter{color:#c9b8ff}
+body.dark .seg button{color:#c9b8ff}
+body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
 </style>
 </head>
 <body>
@@ -361,8 +399,6 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 
 <!-- knoppen -->
 <div id="fabs">
-  <button class="fab" id="mute" aria-label="Stem aan/uit" hidden></button>
-  <button class="fab report" id="report" aria-label="Flitser melden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg></button>
   <button class="fab" id="locate" aria-label="Mijn locatie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
 </div>
 
@@ -382,7 +418,6 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 </div>
 <div id="navbar" hidden>
   <div class="eta"><b class="arr" id="eta">--:--</b><span id="remt">– min</span><span id="remd">– km</span></div>
-  <button class="circle" id="navmute" aria-label="Stem aan/uit"></button>
   <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
 <div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#ng)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
@@ -403,29 +438,24 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
   <p class="sub" id="destsub"></p>
   <div class="alts" id="alts"></div>
   <p class="sub" id="routewarn" hidden></p>
+  <div id="stops"></div>
+  <div class="row tools">
+    <button class="small" id="addstop">+ Tussenstop</button>
+    <button class="small" id="favbtn">☆ Bewaren</button>
+    <span id="favpick" hidden><button class="small" data-fav="home">Thuis</button><button class="small" data-fav="work">Werk</button><button class="small" data-fav="list">Favoriet</button></span>
+  </div>
   <div class="row">
     <button class="big ghost" id="cancelroute">Annuleren</button>
     <button class="big go" id="startnav">Start</button>
   </div>
 </div>
 
-<!-- melden -->
-<div class="sheet" id="reportsheet" hidden>
-  <div class="grab"></div>
-  <h2>Wat wil je melden?</h2>
-  <p class="sub">Op je huidige plek, in je rijrichting. Een melding blijft 3 uur staan.</p>
-  <div class="types">
-    <button class="type" data-type="mobiel" style="background:#ff4f8b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="13" height="9" rx="2"/><path d="M16 11l5-2v7l-5-2"/><circle cx="9.5" cy="12.5" r="2.2"/></svg>Mobiele flitser</button>
-    <button class="type" data-type="overig" style="background:#7b5cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg>Controle</button>
-    <button class="type" data-type="vast" style="background:#2f9bff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="3" width="8" height="8" rx="1.5"/><circle cx="12" cy="7" r="1.8"/><path d="M12 11v10"/></svg>Flitspaal</button>
-  </div>
-  <button class="big ghost" style="width:100%" id="cancelreport">Annuleren</button>
-</div>
 
 <!-- instellingen -->
 <div class="sheet" id="settings" hidden>
   <div class="grab"></div>
   <h2>Instellingen</h2>
+  <div class="set"><span>Weergave<small>Automatisch donker van 19:30 tot 7:00.</small></span><span class="seg" id="seg-theme"><button data-v="auto">Auto</button><button data-v="light">Licht</button><button data-v="dark">Donker</button></span></div>
   <label class="set"><span>Gesproken aanwijzingen<small>Een Nederlandse stem zegt de afslagen voor.</small></span><input type="checkbox" class="sw" id="s-voice"></label>
   <div class="set"><span>Stem testen<small id="voiceinfo">Hoor je niets? Installeer de Nederlandse stem via Android-instellingen &gt; Systeem &gt; Talen &gt; Tekst-naar-spraak.</small></span><button class="small" id="testvoice">Test</button></div>
   <label class="set"><span>Flitsmelder<small id="flitsinfo">Flitspalen, trajectcontroles en meldingen.</small></span><input type="checkbox" class="sw" id="s-flits"></label>
@@ -440,7 +470,14 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
     <button class="small" id="savekeys" style="margin-top:8px">Opslaan</button></div>
   <label class="set"><span>Assistent Moes<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
   <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
-  <div class="set"><span>Mijn meldingen<small id="myinfo">Nog geen meldingen.</small></span><button class="small" id="clearmine">Wissen</button></div>
+  <label class="set"><span>Moes spreekt de aanwijzingen<small>De stem klinkt dan als Moes (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
+  <div class="set" style="display:block"><span>Route-opties<small id="avoidinfo">Vermijden werkt met een Mapbox-sleutel.</small></span>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-notoll"> Tol vermijden</label>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-nomotorway"> Snelwegen vermijden</label>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-noferry"> Veerponten vermijden</label></div>
+  <div class="set"><span>Batterijbesparing<small id="saverinfo">Rustigere animaties als de batterij bijna leeg is.</small></span><span class="seg" id="seg-saver"><button data-v="auto">Auto</button><button data-v="on">Aan</button><button data-v="off">Uit</button></span></div>
+  <div class="set" id="bgrow"><span>Navigeren met scherm uit<small id="bginfo">Laat de app op de achtergrond doorwerken, zodat je stem en flitsmeldingen blijft horen.</small></span><button class="small" id="bgallow">Toestaan</button></div>
+  <div class="set"><span>Favorieten<small id="favinfo">Nog geen favorieten.</small></span><button class="small" id="clearfav">Wissen</button></div>
   <div class="set"><span>Rit simuleren<small>Rijdt de gekozen route na, handig om thuis te testen.</small></span><button class="small" id="simulate">Start</button></div>
   <button class="big ghost" style="width:100%;margin-top:10px" id="closesettings">Klaar</button>
   <p class="foot">MoesWeasley Maps · MoesWeasley™<br>Kaart © OpenStreetMap-bijdragers, OpenFreeMap of Mapbox · Routes OSRM · Verkeer NDW</p>

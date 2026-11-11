@@ -21,6 +21,7 @@
     "@capacitor/geolocation": "latest",
     "@capacitor/haptics": "latest",
     "@capacitor/status-bar": "latest",
+    "@capawesome-team/capacitor-android-battery-optimization": "latest",
     "mapbox-gl": "^3",
     "maplibre-gl": "4.7.1"
   },

@@ -101,6 +101,8 @@
     var self = this;
     requestAnimationFrame(function (t) { self.tick(t); });
     if (document.hidden || this.el.hidden) { this.last = now; return; }
+    /* spaarstand: maar ~12 keer per seconde bijwerken */
+    if (document.body.classList.contains("saver") && this.last && now - this.last < 80) return;
     var dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0.016; this.last = now;
     var t = now / 1000 + this.seed, st = this.state, calm = st === "sleepy" ? 0.35 : st === "point" ? 0.45 : st === "shock" || st === "fast" ? 0.2 : 1;
     /* doorlopende levendigheid: verschillende ritmes per onderdeel */

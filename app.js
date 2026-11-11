@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true }, load("set", {}));
+var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto" }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -132,17 +132,18 @@ if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pic
 function say(text, force) {
   if (!text || (!S.voice && !force)) return;
   if (moes && S.moes) moes.talk(400 + text.length * 62); /* Moes praat mee */
+  /* Moes-stem: iets hoger en vrolijker */
+  var mv = S.moes && S.moesVoice, pitch = mv ? 1.35 : 1.0, rate = mv ? 1.06 : 1.0;
   if (NATIVE && PL.TextToSpeech) {
-    try { PL.TextToSpeech.speak({ text: text, lang: "nl-NL", rate: 1.0, pitch: 1.0, volume: 1.0, category: "playback", queueStrategy: 1 }).catch(function () {}); } catch (e) {}
+    try { PL.TextToSpeech.speak({ text: text, lang: "nl-NL", rate: rate, pitch: pitch, volume: 1.0, category: "playback", queueStrategy: 1 }).catch(function () {}); } catch (e) {}
     return;
   }
   if (window.speechSynthesis) {
-    var u = new SpeechSynthesisUtterance(text); u.lang = "nl-NL"; if (webVoice) u.voice = webVoice; u.rate = 1.02;
+    var u = new SpeechSynthesisUtterance(text); u.lang = "nl-NL"; if (webVoice) u.voice = webVoice; u.rate = rate * 1.02; u.pitch = pitch;
     speechSynthesis.speak(u);
   }
 }
 function setMuteIcons() {
-  [$("mute"), $("navmute")].forEach(function (b) { b.innerHTML = S.voice ? ICON.volOn : ICON.volOff; });
   $("s-voice").checked = S.voice;
 }
 
@@ -209,11 +210,23 @@ function lightPreset() {
 }
 function mapboxLook() {
   function cfg(k, v) { try { map.setConfigProperty("basemap", k, v); } catch (e) {} }
-  cfg("lightPreset", lightPreset()); cfg("theme", "default"); cfg("show3dObjects", true);
+  cfg("lightPreset", S.theme === "dark" ? "night" : S.theme === "light" ? "day" : lightPreset()); cfg("theme", "default"); cfg("show3dObjects", true);
   cfg("showPointOfInterestLabels", true); cfg("showTransitLabels", false);
   /* fellere kleuren waar de stijl dat toestaat */
   cfg("colorWater", "#49bfff"); cfg("colorGreenspace", "#7ee6a8"); cfg("colorMotorways", "#ffa45c"); cfg("colorTrunks", "#ffd166");
 }
+
+/* ---------- dag/nacht ---------- */
+var darkNow = null;
+function applyTheme(force) {
+  var d = isDark();
+  if (d === darkNow && !force) return;
+  darkNow = d; document.body.classList.toggle("dark", d);
+  var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = d ? "#17142f" : "#7b5cff";
+  if (NATIVE && PL.StatusBar) { try { PL.StatusBar.setStyle({ style: d ? "DARK" : "LIGHT" }); } catch (e) {} }
+  if (map && mapReady) { if (MAPBOX) mapboxLook(); else styleMap(); }
+}
+setInterval(function () { applyTheme(false); }, 60000);
 
 /* ---------- kaart ---------- */
 var map = null, mapReady = false, meMarker = null, destMarker = null;
@@ -241,7 +254,7 @@ function initMap() {
       if (!mapReady && /401|403|token|Unauthorized|Forbidden|style/i.test(m)) { clearTimeout(fbT); freeMapFallback(/401|403|token|Unauthorized|Forbidden/i.test(m) ? "Mapbox-sleutel werkt niet" : "Mapbox laadt niet"); }
     });
   }
-  map.on("load", function () { mapReady = true; if (!MAPBOX) styleMap(); addLayers(); setFlowLayer(); drawAll(); });
+  map.on("load", function () { mapReady = true; if (!MAPBOX) styleMap(); addLayers(); setFlowLayer(); drawAll(); applyTheme(true); });
   map.on("error", function (e) { if (!mapReady && e && e.error && /style|fetch/i.test(String(e.error.message))) toast("Kaartstijl niet bereikbaar.", true); });
   ["dragstart", "pitchstart", "rotatestart"].forEach(function (ev) {
     map.on(ev, function (e) { if (e.originalEvent && st.follow) { st.follow = false; $("recenter").hidden = !st.nav && !st.pos; } });
@@ -321,6 +334,7 @@ function addLayers() {
   if (MAPBOX) { var add0 = map.addLayer.bind(map); map.addLayer = function (l, b) { if (!l.slot) l.slot = "top"; return add0(l, b); }; }
   map.addSource("alts", { type: "geojson", data: EMPTY });
   map.addSource("route", { type: "geojson", data: EMPTY, lineMetrics: true });
+  map.addSource("routetraffic", { type: "geojson", data: EMPTY });
   map.addSource("cams", { type: "geojson", data: EMPTY });
   map.addSource("traffic", { type: "geojson", data: EMPTY });
   /* route boven de 3D-gebouwen, maar onder de straatnamen */
@@ -339,6 +353,9 @@ function addLayers() {
   map.addLayer({ id: "route-case", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 16, 18] } }, before);
   map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#7b5cff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 16, 12],
     "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7b5cff", 0.45, "#c24dff", 0.8, "#ff4fa3", 1, "#ff9a3c"] } }, before);
+  /* drukte op de route (Mapbox): oranje = matig, rood = zwaar, donkerrood = stilstand */
+  map.addLayer({ id: "route-traffic", type: "line", source: "routetraffic", layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": ["match", ["get", "l"], "moderate", "#ff9f1c", "heavy", "#ff3d5a", "severe", "#b5003c", "#ff9f1c"], "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 9] } }, before);
   map.addLayer({ id: "traffic-glow", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 10, 15, 24], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addLayer({ id: "cams-glow", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 10, 15, 26], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addLayer({ id: "traffic-c", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 15, 9], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
@@ -348,7 +365,23 @@ function addLayers() {
   map.on("click", "traffic-c", function (e) { var p = e.features[0].properties; toast((TRAF[p.t] || TRAF.overig).l); });
 }
 /* gebouwen: hoe hoger, hoe blauwer (roze → paars → blauw) */
-var BUILD_COL = ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], ["get", "h"], 8], 0, "#ffc4e6", 15, "#e0b8ff", 35, "#a9a4ff", 70, "#6fb6ff"];
+/* kleurenpaletten voor dag en nacht */
+var PAL = {
+  light: { bg: "#efe8ff", water: "#49bfff", wood: "#52d98a", park: "#7ee6a8", bfill: "#f1d4ff", com: "#ffe0c7", ind: "#e2dcff", res: "#fbe3f4",
+    mw: "#ffa45c", mwc: "#ff6f91", prim: "#ffd166", sec: "#fff0a8", casing: "#d9cdf5", minor: "#ffffff", text: "#3b2f6b", halo: "#ffffff",
+    build: ["#ffc4e6", "#e0b8ff", "#a9a4ff", "#6fb6ff"], sky: ["#8f7bff", "#ffb3dd", "#efe8ff"],
+    wBase: "#43bbfd", wHi: "rgba(255,255,255,0.32)", wLo: "rgba(10,110,220,0.22)", gBase: "#7ee6a8", gWood: "#4fd486", gBlade: "#2fb069", gBladeW: "#249a54", patch: "rgba(60,190,110,.18)" },
+  dark: { bg: "#17142f", water: "#1f5fb8", wood: "#175a3c", park: "#1e6b4a", bfill: "#2c2752", com: "#2f2440", ind: "#26234a", res: "#221d42",
+    mw: "#ff9f4a", mwc: "#b4445f", prim: "#e3b448", sec: "#8e845a", casing: "#0f0c24", minor: "#3a3466", text: "#d9d4ff", halo: "#17142f",
+    build: ["#4b3a7c", "#3f3a8c", "#34479c", "#2b56ad"], sky: ["#0c0a24", "#3b2a7a", "#17142f"],
+    wBase: "#1d4f9e", wHi: "rgba(160,210,255,0.22)", wLo: "rgba(0,20,60,0.35)", gBase: "#1e6b4a", gWood: "#175a3c", gBlade: "#2f9a62", gBladeW: "#23804f", patch: "rgba(0,40,20,.25)" }
+};
+function isDark() {
+  if (S.theme === "dark") return true; if (S.theme === "light") return false;
+  var h = new Date().getHours() + new Date().getMinutes() / 60; return h < 7 || h >= 19.5;
+}
+function P() { return isDark() ? PAL.dark : PAL.light; }
+function buildCol() { var b = P().build; return ["interpolate", ["linear"], ["to-number", ["coalesce", ["get", "render_height"], ["get", "h"], 8]], 0, b[0], 15, b[1], 35, b[2], 70, b[3]]; }
 /* ---------- levende kaart: golvend water, wiegend gras en bewegende bomen ----------
    Patronen worden in de app zelf getekend (geen downloads) en ~15 keer per seconde ververst. */
 var LIVE = { ready: false, last: 0, size: 192, sprites: null };
@@ -371,15 +404,15 @@ function liveSprites() {
 }
 function drawWater(ctx, t) {
   var S2 = LIVE.size, sp = LIVE.sprites;
-  ctx.fillStyle = "#43bbfd"; ctx.fillRect(0, 0, S2, S2);
+  var pl = P(); ctx.fillStyle = pl.wBase; ctx.fillRect(0, 0, S2, S2);
   for (var row = 0; row < 4; row++) {
     var y0 = row * 48 + 20;
     ctx.beginPath();
     for (var x = 0; x <= S2; x += 4) { var y = y0 + 5 * Math.sin(x / S2 * Math.PI * 4 + t * 1.5 + row * 1.3); if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
-    ctx.strokeStyle = "rgba(255,255,255,0.32)"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.strokeStyle = pl.wHi; ctx.lineWidth = 3; ctx.stroke();
     ctx.beginPath();
     for (x = 0; x <= S2; x += 4) { var y2 = y0 + 16 + 3 * Math.sin(x / S2 * Math.PI * 6 - t * 1.1 + row); if (x === 0) ctx.moveTo(x, y2); else ctx.lineTo(x, y2); }
-    ctx.strokeStyle = "rgba(10,110,220,0.22)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = pl.wLo; ctx.lineWidth = 2; ctx.stroke();
   }
   sp.spark.forEach(function (s) {
     var a = Math.sin(t * 1.8 + s.p);
@@ -388,10 +421,10 @@ function drawWater(ctx, t) {
 }
 function drawGreen(ctx, t, wood) {
   var S2 = LIVE.size, sp = LIVE.sprites;
-  ctx.fillStyle = wood ? "#4fd486" : "#7ee6a8"; ctx.fillRect(0, 0, S2, S2);
-  sp.patches.forEach(function (q) { ctx.fillStyle = wood ? "rgba(30,150,80,.18)" : "rgba(60,190,110,.18)"; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); });
+  var pl = P(); ctx.fillStyle = wood ? pl.gWood : pl.gBase; ctx.fillRect(0, 0, S2, S2);
+  sp.patches.forEach(function (q) { ctx.fillStyle = pl.patch; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); });
   /* wiegend gras */
-  ctx.lineCap = "round"; ctx.lineWidth = 2.3; ctx.strokeStyle = wood ? "#249a54" : "#2fb069";
+  ctx.lineCap = "round"; ctx.lineWidth = 2.3; ctx.strokeStyle = wood ? pl.gBladeW : pl.gBlade;
   sp.tufts.forEach(function (g) {
     var sw = 2.2 * Math.sin(t * 2.1 + g.p + g.x * 0.04);
     for (var k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(g.x + k * 2.2, g.y); ctx.quadraticCurveTo(g.x + k * 3 + sw * 0.4, g.y - 5, g.x + k * 3.6 + sw * 1.3, g.y - 11 + Math.abs(k) * 2); ctx.stroke(); }
@@ -424,7 +457,8 @@ function liveSetup() {
 }
 function liveTick(now) {
   if (!LIVE.ready) return;
-  if (now - LIVE.last > 66 && !document.hidden && mapReady && map.getZoom() >= 11) {
+  if (now - LIVE.last > (SAVER ? 400 : 66) && !document.hidden && mapReady && map.getZoom() >= 11 && !(SAVER && LIVE.drawnOnce)) {
+    LIVE.drawnOnce = true;
     LIVE.last = now; var t = now / 1000;
     try {
       map.updateImage("mw-water", liveImage(drawWater, t));
@@ -437,38 +471,41 @@ function liveTick(now) {
 
 /* kaart in de kleuren van de app: zachte pastels, 3D-gebouwen en een lucht aan de horizon */
 function styleMap() {
-  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false, live = liveSetup();
+  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false, live = liveSetup(), pl = P();
+  GREEN_LAYERS = [];
   function paint(id, k, v) { try { map.setPaintProperty(id, k, v); } catch (e) {} }
   function pattern(id, img) { if (live) { paint(id, "fill-pattern", img); paint(id, "fill-opacity", 0.95); } }
   layers.forEach(function (l) {
     var id = l.id.toLowerCase(), t = l.type;
-    if (t === "background") paint(l.id, "background-color", "#efe8ff");
-    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", "#49bfff"); paint(l.id, "fill-opacity", 0.9); pattern(l.id, "mw-water"); }
-    else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#49bfff");
-    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", "#52d98a"); pattern(l.id, "mw-wood"); GREEN_LAYERS.push(l.id); }
-    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", "#7ee6a8"); pattern(l.id, "mw-park"); if (/park|wood|forest|garden/.test(id)) GREEN_LAYERS.push(l.id); }
-    else if (t === "fill" && /pitch/.test(id)) paint(l.id, "fill-color", "#7ee6a8");
-    else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", BUILD_COL); paint(l.id, "fill-extrusion-opacity", 0.88); }
-    else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#f1d4ff");
-    else if (t === "fill" && /commercial|retail/.test(id)) paint(l.id, "fill-color", "#ffe0c7");
-    else if (t === "fill" && /industrial/.test(id)) paint(l.id, "fill-color", "#e2dcff");
-    else if (t === "fill" && /residential|landuse/.test(id)) paint(l.id, "fill-color", "#fbe3f4");
-    else if (t === "line" && /motorway|trunk/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffa45c");
-    else if (t === "line" && /motorway|trunk/.test(id) && /casing/.test(id)) paint(l.id, "line-color", "#ff6f91");
-    else if (t === "line" && /primary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffd166");
-    else if (t === "line" && /secondary|tertiary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#fff0a8");
-    else if (t === "line" && /casing/.test(id)) paint(l.id, "line-color", "#d9cdf5");
+    if (t === "background") paint(l.id, "background-color", pl.bg);
+    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", pl.water); paint(l.id, "fill-opacity", 0.9); pattern(l.id, "mw-water"); }
+    else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", pl.water);
+    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", pl.wood); pattern(l.id, "mw-wood"); GREEN_LAYERS.push(l.id); }
+    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", pl.park); pattern(l.id, "mw-park"); if (/park|wood|forest|garden/.test(id)) GREEN_LAYERS.push(l.id); }
+    else if (t === "fill" && /pitch/.test(id)) paint(l.id, "fill-color", pl.park);
+    else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", buildCol()); paint(l.id, "fill-extrusion-opacity", 0.88); }
+    else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", pl.bfill);
+    else if (t === "fill" && /commercial|retail/.test(id)) paint(l.id, "fill-color", pl.com);
+    else if (t === "fill" && /industrial/.test(id)) paint(l.id, "fill-color", pl.ind);
+    else if (t === "fill" && /residential|landuse/.test(id)) paint(l.id, "fill-color", pl.res);
+    else if (t === "line" && /motorway|trunk/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", pl.mw);
+    else if (t === "line" && /motorway|trunk/.test(id) && /casing/.test(id)) paint(l.id, "line-color", pl.mwc);
+    else if (t === "line" && /primary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", pl.prim);
+    else if (t === "line" && /secondary|tertiary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", pl.sec);
+    else if (t === "line" && /casing/.test(id)) paint(l.id, "line-color", pl.casing);
+    else if (t === "line" && /road|street|minor|service|track|path|highway/.test(id) && !/rail|transit/.test(id)) paint(l.id, "line-color", pl.minor);
+    else if (t === "symbol") { paint(l.id, "text-color", pl.text); paint(l.id, "text-halo-color", pl.halo); }
   });
   var src = map.getSource("openmaptiles") ? "openmaptiles" : null;
   if (!has3d && src) {
     try {
       map.addLayer({ id: "mw-3d", type: "fill-extrusion", source: src, "source-layer": "building", minzoom: 14,
-        paint: { "fill-extrusion-color": BUILD_COL, "fill-extrusion-opacity": 0.88,
+        paint: { "fill-extrusion-color": buildCol(), "fill-extrusion-opacity": 0.88,
           "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8], "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0] } });
     } catch (e) {}
   }
   if (typeof map.setSky === "function") {
-    try { map.setSky({ "sky-color": "#8f7bff", "horizon-color": "#ffb3dd", "fog-color": "#efe8ff", "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.35 }); } catch (e) {}
+    try { map.setSky({ "sky-color": pl.sky[0], "horizon-color": pl.sky[1], "fog-color": pl.sky[2], "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.35 }); } catch (e) {}
   }
 }
 function setData(id, fc) { if (mapReady && map.getSource(id)) map.getSource(id).setData(fc); }
@@ -652,7 +689,7 @@ function showResults(list, head) {
   var box = $("results");
   if (!list.length) { box.hidden = true; return; }
   box.innerHTML = (head ? '<div class="reshead">' + esc(head) + "</div>" : "") + list.map(function (r, i) {
-    return '<button class="res" data-i="' + i + '"><span class="pin' + (r.recent ? " recent" : "") + '">' + (r.recent ? ICON.clock : ICON.pin) + "</span><span><b>" + esc(r.name) + "</b><small>" + esc(r.sub || "") + (r.dist != null ? " · " + N.fmtDist(r.dist) : "") + "</small></span></button>";
+    return '<button class="res" data-i="' + i + '"><span class="pin' + (r.recent || r.icon ? " recent" : "") + '">' + (r.icon || (r.recent ? ICON.clock : ICON.pin)) + "</span><span><b>" + esc(r.name) + "</b><small>" + esc(r.sub || "") + (r.dist != null ? " · " + N.fmtDist(r.dist) : "") + "</small></span></button>";
   }).join("");
   box.hidden = false;
   Array.prototype.forEach.call(box.querySelectorAll(".res"), function (b) {
@@ -669,9 +706,22 @@ function photonLabel(f) {
   if (p.country && p.countrycode !== "NL") parts.push(p.country);
   return { name: name, sub: parts.join(", ") };
 }
+/* zoeken: Mapbox (adressen) en Photon/OpenStreetMap (winkels, plekken) tegelijk, samengevoegd */
+function mapboxSearch(q, here) {
+  if (!useMapboxApi()) return Promise.resolve([]);
+  var u = "https://api.mapbox.com/search/geocode/v6/forward?q=" + encodeURIComponent(q) + "&language=nl&limit=6&country=nl,be,de,lu" +
+    (here ? "&proximity=" + here.lon.toFixed(4) + "," + here.lat.toFixed(4) : "") + "&access_token=" + encodeURIComponent(MAPBOX_TOKEN);
+  return fetchJson(u, 7000).then(function (d) {
+    return (d.features || []).map(function (f) {
+      var p = f.properties || {}, c = (p.coordinates && [p.coordinates.longitude, p.coordinates.latitude]) || f.geometry.coordinates;
+      return { lat: c[1], lon: c[0], name: p.name || p.full_address || "", sub: p.place_formatted || "" };
+    });
+  }).catch(function () { return []; });
+}
 function search(q) {
   var seq = ++qSeq, here = st.pos || (map ? { lat: map.getCenter().lat, lon: map.getCenter().lng } : null);
   var pu = CFG.photon + "?limit=8&q=" + encodeURIComponent(q) + (here ? "&lat=" + here.lat.toFixed(4) + "&lon=" + here.lon.toFixed(4) : "");
+  var mb = mapboxSearch(q, here);
   fetchJson(pu, 8000).then(function (d) {
     return (d.features || []).map(function (f) {
       var l = photonLabel(f), c = f.geometry.coordinates;
@@ -681,6 +731,14 @@ function search(q) {
     var nu = CFG.nominatim + "?format=jsonv2&limit=8&accept-language=nl&countrycodes=nl,be,de,lu,fr&q=" + encodeURIComponent(q);
     return fetchJson(nu, 8000).then(function (d) {
       return d.map(function (x) { var parts = x.display_name.split(", "); return { lat: +x.lat, lon: +x.lon, name: x.name || parts[0], sub: parts.slice(1, 3).join(", ") }; });
+    });
+  }).catch(function () { return []; }).then(function (list) {
+    return mb.then(function (m) {
+      /* samenvoegen: Mapbox eerst, dubbele (zelfde naam binnen 80 m) eruit */
+      var all = m.concat(list).filter(function (r, i, arr) {
+        return !arr.slice(0, i).some(function (o) { return o.name === r.name && N.distM(o.lat, o.lon, r.lat, r.lon) < 80; });
+      });
+      return all.slice(0, 10);
     });
   }).then(function (list) {
     if (seq !== qSeq) return;
@@ -702,9 +760,30 @@ function wireSearch() {
   $("qclear").onclick = function () { q.value = ""; $("qclear").hidden = true; $("results").hidden = true; if (st.dest) cancelRoute(); };
   document.addEventListener("pointerdown", function (e) { if (!$("top").contains(e.target)) $("results").hidden = true; });
 }
+/* ---------- favorieten ---------- */
+function favs() { return load("favs", { home: null, work: null, list: [] }); }
+function saveFav(kind, d) {
+  var f = favs(), item = { lat: d.lat, lon: d.lon, name: d.name, sub: d.sub || "" };
+  if (kind === "list") { f.list = f.list.filter(function (x) { return N.distM(x.lat, x.lon, d.lat, d.lon) > 20; }); f.list.unshift(item); f.list = f.list.slice(0, 12); }
+  else f[kind] = item;
+  store("favs", f); setFavInfo();
+  toast(kind === "home" ? "Opgeslagen als Thuis" : kind === "work" ? "Opgeslagen als Werk" : "Opgeslagen bij favorieten");
+}
+function setFavInfo() {
+  var f = favs(), n = (f.home ? 1 : 0) + (f.work ? 1 : 0) + f.list.length;
+  if ($("favinfo")) $("favinfo").textContent = n ? (f.home ? "Thuis" + (f.work || f.list.length ? ", " : "") : "") + (f.work ? "Werk" + (f.list.length ? ", " : "") : "") + (f.list.length ? f.list.length + " favoriet" + (f.list.length > 1 ? "en" : "") : "") + "." : "Nog geen favorieten. Bewaar een plek via het routescherm.";
+}
+var ICON_HOME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1z"/></svg>';
+var ICON_WORK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2M3 13h18"/></svg>';
+var ICON_STAR = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>';
 function showRecents() {
-  var r = recents().map(function (x) { return Object.assign({ recent: true }, x); });
-  if (r.length) showResults(r, "Recent"); else $("results").hidden = true;
+  var f = favs(), list = [];
+  if (f.home) list.push(Object.assign({ icon: ICON_HOME, sub2: "Thuis" }, f.home, { name: "Thuis", sub: f.home.name + (f.home.sub ? ", " + f.home.sub : "") }));
+  if (f.work) list.push(Object.assign({ icon: ICON_WORK }, f.work, { name: "Werk", sub: f.work.name + (f.work.sub ? ", " + f.work.sub : "") }));
+  f.list.forEach(function (x) { list.push(Object.assign({ icon: ICON_STAR }, x)); });
+  var r = recents().filter(function (x) { return !list.some(function (y) { return N.distM(x.lat, x.lon, y.lat, y.lon) < 20; }); }).map(function (x) { return Object.assign({ recent: true }, x); });
+  var all = list.concat(r);
+  if (all.length) showResults(all, st.addingStop ? "Kies een tussenstop" : (list.length ? "Favorieten en recent" : "Recent")); else $("results").hidden = true;
 }
 
 /* ---------- route ---------- */
@@ -713,11 +792,26 @@ function origin() {
   if (map) { var c = map.getCenter(); return { lat: c.lat, lon: c.lng, guess: true }; }
   return null;
 }
+/* routes: met een Mapbox-sleutel via Mapbox (live verkeer, files omzeilen, vermijden-opties), anders/terugval de gratis OSRM-servers */
+function useMapboxApi() { return !!MAPBOX_TOKEN && !CFG.noMapbox; }
 function fetchRoutes(from, to, heading) {
-  var path = from.lon.toFixed(6) + "," + from.lat.toFixed(6) + ";" + to.lon.toFixed(6) + "," + to.lat.toFixed(6);
-  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=3&continue_straight=true";  /* OSRM kent geen maxspeed-annotatie: die zou het hele verzoek laten mislukken */
-  if (heading != null && st.speed > 3) qs += "&bearings=" + Math.round(heading) + ",60;&radiuses=60;unlimited";
-  return firstOk((CFG.routers || []).map(function (b) { return b + path + qs; }), 15000).then(function (d) {
+  var pts = [from].concat(st.stops || []).concat([to]), multi = pts.length > 2;
+  var path = pts.map(function (p) { return p.lon.toFixed(6) + "," + p.lat.toFixed(6); }).join(";");
+  var bear = "", rad = "";
+  if (heading != null && st.speed > 3) {
+    bear = "&bearings=" + [Math.round(heading) + ",60"].concat(pts.slice(1).map(function () { return ""; })).join(";");
+    rad = "&radiuses=" + ["60"].concat(pts.slice(1).map(function () { return "unlimited"; })).join(";");
+  }
+  var urls = [];
+  if (useMapboxApi()) {
+    var ex = [S.noToll && "toll", S.noMotorway && "motorway", S.noFerry && "ferry"].filter(Boolean).join(",");
+    urls.push("https://api.mapbox.com/directions/v5/mapbox/driving-traffic/" + path + "?overview=full&geometries=geojson&steps=true&continue_straight=true" +
+      "&alternatives=" + (multi ? "false" : "true") + "&annotations=maxspeed,congestion&language=nl" + (ex ? "&exclude=" + ex : "") + bear + rad +
+      "&access_token=" + encodeURIComponent(MAPBOX_TOKEN));
+  }
+  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=" + (multi ? "false" : "3") + "&continue_straight=true" + bear + rad; /* geen maxspeed: OSRM kent die niet */
+  urls = urls.concat((CFG.routers || []).map(function (b) { return b + path + qs; }));
+  return firstOk(urls, 15000).then(function (d) {
     if (d.code !== "Ok" || !d.routes || !d.routes.length) throw new Error(d.message || "geen route");
     return d.routes.map(N.buildRoute);
   });
@@ -738,11 +832,17 @@ function scoreRoutes(routes) {
 }
 function chooseDest(d) {
   if (st.nav) return;
+  if (st.addingStop && st.dest) {
+    st.addingStop = false; $("q").placeholder = "Waar wil je heen?"; $("q").value = st.dest.name; $("qclear").hidden = false;
+    st.stops = (st.stops || []).concat([{ lat: d.lat, lon: d.lon, name: d.name }]).slice(0, 3);
+    chooseDest(st.dest); return;
+  }
+  if (!st.dest || N.distM(st.dest.lat, st.dest.lon, d.lat, d.lon) > 5) st.stops = [];
   stopDrive();
   st.dest = d; addRecent(d);
   $("destname").textContent = d.name; $("destsub").textContent = d.sub || "";
   $("alts").innerHTML = '<div class="alt sel"><div class="t">…</div><div class="d">Route berekenen</div></div>';
-  $("routewarn").hidden = true;
+  $("routewarn").hidden = true; $("favpick").hidden = true; renderStops();
   openSheet("routesheet");
   if (!destMarker && GL) {
     var el = document.createElement("div"); el.className = "destpin";
@@ -793,6 +893,8 @@ function drawRoutes() {
   });
   setData("alts", { type: "FeatureCollection", features: alts });
   setData("route", main);
+  var r = st.nav ? st.route : st.routes[st.sel];
+  setData("routetraffic", { type: "FeatureCollection", features: ((r && r.cong) || []).map(function (c) { return { type: "Feature", properties: { l: c.level }, geometry: { type: "LineString", coordinates: c.coords } }; }) });
 }
 function fitRoutes() {
   if (!map || !st.routes.length) return;
@@ -801,7 +903,16 @@ function fitRoutes() {
   var sh = $("routesheet").offsetHeight || 260;
   map.fitBounds(b, { padding: { top: 90, bottom: sh + 30, left: 40, right: 40 }, bearing: 0, pitch: 0, duration: 700, maxZoom: 16 });
 }
+function renderStops() {
+  var box = $("stops"); if (!box) return;
+  box.innerHTML = (st.stops || []).map(function (sp, i) { return '<span class="stop"><b>' + (i + 1) + "</b>" + esc(sp.name) + '<button data-i="' + i + '" aria-label="Weghalen">✕</button></span>'; }).join("");
+  Array.prototype.forEach.call(box.querySelectorAll("button"), function (b) {
+    b.onclick = function () { st.stops.splice(+b.dataset.i, 1); chooseDest(st.dest); };
+  });
+  $("addstop").hidden = (st.stops || []).length >= 3;
+}
 function cancelRoute() {
+  st.stops = []; st.addingStop = false; $("q").placeholder = "Waar wil je heen?";
   st.dest = null; st.routes = []; closeSheets();
   if (destMarker) destMarker.remove();
   drawRoutes(); $("q").value = ""; $("qclear").hidden = true;
@@ -810,11 +921,12 @@ function cancelRoute() {
 /* ---------- navigeren ---------- */
 function startNav() {
   var r = st.routes[st.sel]; if (!r) return;
+  if (!load("bgAsked", false)) { store("bgAsked", true); setTimeout(function () { askBackground(false); }, 1500); }
   st.drive = false; document.body.classList.remove("drive");
   st.route = r; st.nav = true; st.follow = true; st.hint = 0; st.offCount = 0; st.said = {}; st.warned = {}; st.arrived = false;
   prepRouteWarnings();
   closeSheets(); document.body.classList.add("nav");
-  $("top").hidden = true; $("banner").hidden = false; $("navbar").hidden = false; $("mute").hidden = true;
+  $("top").hidden = true; $("banner").hidden = false; $("navbar").hidden = false;
   drawRoutes(); keepAwake(true);
   var first = r.steps[1];
   say("De route is gestart." + (first && !first.silent ? " " + (first.startDist > 200 ? "Over " + N.sayDist(first.startDist) + ", " + lc(first.voice) : first.voice) + "." : ""));
@@ -825,7 +937,7 @@ function startNav() {
 function stopNav(silent) {
   st.nav = false; st.route = null; stopSim();
   document.body.classList.remove("nav");
-  $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true; $("mute").hidden = false;
+  $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true;
   hideAlert(); keepAwake(false);
   $("navarrow").hidden = true; $("street").hidden = true; $("guide").hidden = true; document.body.classList.remove("guide"); if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
   if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
@@ -897,7 +1009,7 @@ function toDrive() {
   fadeOut($("navbar"), "leaving", 450);
   $("then").hidden = true; $("guide").hidden = true; $("recenter").hidden = true;
   $("top").hidden = false; $("top").classList.remove("entering"); void $("top").offsetWidth; $("top").classList.add("entering");
-  $("mute").hidden = false; $("q").value = ""; $("qclear").hidden = true;
+  $("q").value = ""; $("qclear").hidden = true;
   /* route en bestemmingspin laten vervagen */
   if (mapReady) ["route-line", "route-case", "route-glow"].forEach(function (id) { try { map.setPaintProperty(id, "line-opacity", 0); } catch (e) {} });
   if (destMarker && destMarker.map) { var pin = destMarker.getElement(); pin.style.transition = "opacity .6s"; pin.style.opacity = "0"; }
@@ -920,6 +1032,10 @@ function stopDrive() {
 }
 function reroute() {
   if (st.rerouting || !st.dest || !st.pos) return;
+  if (st.route && st.stops && st.stops.length) {
+    var wps = st.route.steps.filter(function (x) { return x.type === "waypoint"; }).map(function (x) { return x.startDist; });
+    st.stops = st.stops.filter(function (sp, i) { return wps[i] == null || wps[i] > (st.along || 0) + 30; });
+  }
   st.rerouting = true; st.lastReroute = Date.now();
   $("btext").textContent = "Nieuwe route berekenen…"; $("bdist").textContent = "↻"; $("broad").textContent = "";
   say("Route wordt herberekend");
@@ -978,8 +1094,6 @@ function drawCams() {
 function setFlitsInfo() {
   var n = natData ? (natData.cams || []).length + (natData.trajects || []).length : 0;
   $("flitsinfo").textContent = natData ? n + " flitsers en trajectcontroles. Bijgewerkt " + new Date(natData.updated * 1000).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }) + "." : "Flitspalen, trajectcontroles en meldingen. Nog niet geladen.";
-  var m = mine.filter(function (c) { return c.when + REPORT_TTL > Date.now(); }).length;
-  $("myinfo").textContent = m ? (m === 1 ? "1 actieve melding" : m + " actieve meldingen") : "Nog geen meldingen.";
 }
 function loadFlitsers() {
   var stamp = new Date().toISOString().slice(0, 13);
@@ -1143,10 +1257,79 @@ function showAlert(kind, title, text, icon, pulse) {
 function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; alertFor = null; st.camMax = null; updateLimit(); }
 /* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
 function updateLimit() {
-  var lim = st.camMax || (st.nav ? st.roadLimit : null), kmh = st.speed * 3.6;
+  var lim = st.camMax || (st.nav || st.drive || (useMapboxApi() && st.speed > 4) ? st.roadLimit : null), kmh = st.speed * 3.6;
   $("limit").hidden = !lim; $("limit").textContent = lim || "";
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
+/* ---------- navigeren met scherm uit: Android-accubesparing voor deze app uitzetten ---------- */
+function batteryPlugin() { return NATIVE && PL.BatteryOptimization; }
+function askBackground(fromSettings) {
+  var B = batteryPlugin();
+  if (!B) { if (fromSettings) toast("Dit kan alleen in de app op je telefoon."); return; }
+  B.isBatteryOptimizationEnabled().then(function (r) {
+    if (!r || !r.enabled) { $("bginfo").textContent = "Staat aan: de app werkt door met het scherm uit."; $("bgallow").hidden = true; if (fromSettings) toast("Staat al goed!"); return; }
+    if (!fromSettings) toast("Sta toe dat MoesWeasley Maps op de achtergrond doorwerkt, dan hoor je de stem ook met het scherm uit.", false, 6000);
+    return B.requestIgnoreBatteryOptimization().catch(function () { return B.openBatteryOptimizationSettings(); });
+  }).catch(function () {}).then(function () { setTimeout(checkBackground, 2000); });
+}
+function checkBackground() {
+  var B = batteryPlugin(); if (!B) return;
+  B.isBatteryOptimizationEnabled().then(function (r) {
+    var ok = r && !r.enabled;
+    $("bginfo").textContent = ok ? "Staat aan: de app werkt door met het scherm uit." : "Laat de app op de achtergrond doorwerken, zodat je stem en flitsmeldingen blijft horen.";
+    $("bgallow").hidden = ok;
+  }).catch(function () {});
+}
+
+/* ---------- batterijbesparing ---------- */
+var SAVER = false, battery = null;
+function applySaver() {
+  var low = battery && !battery.charging && battery.level <= 0.2;
+  SAVER = S.saver === "on" || (S.saver === "auto" && !!low);
+  document.body.classList.toggle("saver", SAVER);
+  LIVE.drawnOnce = false;
+  if ($("saverinfo")) $("saverinfo").textContent = SAVER ? "Staat aan: rustigere animaties, kaart beweegt minder." :
+    (S.saver === "auto" ? "Gaat vanzelf aan onder 20% batterij (als je niet laadt)." : "Staat uit.");
+}
+if (navigator.getBattery) navigator.getBattery().then(function (b) {
+  battery = b; applySaver();
+  b.addEventListener("levelchange", applySaver); b.addEventListener("chargingchange", applySaver);
+}).catch(function () {});
+
+/* ---------- snelheidslimiet zonder route (rijmodus): korte Mapbox-route 250 m vooruit ---------- */
+var limitReq = { t: 0, busy: false };
+function driveLimit() {
+  if (st.nav || !st.pos || st.heading == null || st.speed < 4 || !useMapboxApi() || limitReq.busy) { if (!st.nav && st.speed < 1) st.roadLimit = st.roadLimit; return; }
+  if (Date.now() - limitReq.t < 8000) return;
+  limitReq.busy = true; limitReq.t = Date.now();
+  var R0 = 6371000, b = st.heading * Math.PI / 180, d = 250 / R0, la = st.pos.lat * Math.PI / 180, lo = st.pos.lon * Math.PI / 180;
+  var la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
+  var lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
+  var u = "https://api.mapbox.com/directions/v5/mapbox/driving/" + st.pos.lon.toFixed(6) + "," + st.pos.lat.toFixed(6) + ";" + (lo2 * 180 / Math.PI).toFixed(6) + "," + (la2 * 180 / Math.PI).toFixed(6) +
+    "?overview=false&annotations=maxspeed&bearings=" + Math.round(st.heading) + ",45;&access_token=" + encodeURIComponent(MAPBOX_TOKEN);
+  fetchJson(u, 6000).then(function (d) {
+    var m = d && d.routes && d.routes[0] && d.routes[0].legs[0].annotation && d.routes[0].legs[0].annotation.maxspeed;
+    var first = m && m.filter(function (x) { return x && x.speed; })[0];
+    st.roadLimit = first ? (first.unit === "mph" ? Math.round(first.speed * 1.609) : first.speed) : null;
+    updateLimit();
+  }).catch(function () {}).then(function () { limitReq.busy = false; });
+}
+setInterval(driveLimit, 2000);
+
+/* ---------- pauzeherinnering na 2 uur rijden ---------- */
+var driving = { since: 0, stopAt: 0, nextRemind: 0 };
+function pauseCheck() {
+  var now = Date.now();
+  if (st.speed > 3) { if (!driving.since) { driving.since = now; driving.nextRemind = now + 2 * 3600 * 1000; } driving.stopAt = 0; }
+  else if (driving.since) { if (!driving.stopAt) driving.stopAt = now; if (now - driving.stopAt > 10 * 60 * 1000) driving.since = 0; }
+  if (driving.since && now > driving.nextRemind && st.speed > 3) {
+    driving.nextRemind = now + 30 * 60 * 1000;
+    say("Je rijdt al een tijdje. Tijd voor een pauze?");
+    if (moes && S.moes) { moes.play("yawn", true); moes.say("Tijd voor een pauze?", 3500); }
+  }
+}
+setInterval(pauseCheck, 15000);
+
 /* ---------- assistent Moes ---------- */
 var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null, moesSeen = { key: null, until: 0, kind: "", fastOn: false, fastUntil: 0, fastCool: 0 };
 function moesLine(state, dir) {
@@ -1169,7 +1352,8 @@ function moesTap() {
   if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
   if (kmh > 5) lines.push("We gaan " + kmh + " km/u!");
   if (TAPS >= 3) { moes.play("heart", true); moes.say("Ik vind jou ook lief!", 2200); TAPS = 0; return; }
-  moes.play("giggle", true); moes.say(lines[Math.floor(Math.random() * lines.length)], 2400);
+  var line = lines[Math.floor(Math.random() * lines.length)];
+  moes.play("giggle", true); moes.say(line, 2400); if (S.moesVoice && S.voice) say(line);
 }
 /* uit zichzelf iets doen als het rustig is */
 function moesIdle() {
@@ -1291,18 +1475,17 @@ function fbReport(c) {
 
 /* ---------- bladen ---------- */
 function openSheet(id) {
-  ["routesheet", "reportsheet", "settings"].forEach(function (s) { $(s).hidden = s !== id; });
+  ["routesheet", "settings"].forEach(function (s) { $(s).hidden = s !== id; });
   $("scrim").hidden = id === "routesheet"; document.body.classList.add("sheet-open");
 }
 function closeSheets() {
-  ["routesheet", "reportsheet", "settings"].forEach(function (s) { $(s).hidden = true; });
+  ["routesheet", "settings"].forEach(function (s) { $(s).hidden = true; });
   $("scrim").hidden = true; document.body.classList.remove("sheet-open");
 }
 
 /* ---------- bediening ---------- */
 function wire() {
   wireSearch(); setMuteIcons();
-  $("mute").onclick = $("navmute").onclick = function () { S.voice = !S.voice; saveS(); setMuteIcons(); if (!S.voice && window.speechSynthesis) speechSynthesis.cancel(); };
   $("locate").onclick = function () {
     if (st.drive) { stopDrive(); toast("Rijmodus uit"); return; }
     startGps();
@@ -1310,9 +1493,6 @@ function wire() {
     else toast("Locatie zoeken…");
   };
   $("recenter").onclick = function () { st.follow = true; $("recenter").hidden = true; if (st.pos) onPos({ lat: st.pos.lat, lon: st.pos.lon, acc: st.acc, speed: st.speed, heading: st.heading, t: Date.now() }, true); };
-  $("report").onclick = function () { openSheet("reportsheet"); };
-  Array.prototype.forEach.call(document.querySelectorAll(".type"), function (b) { b.onclick = function () { report(b.dataset.type); }; });
-  $("cancelreport").onclick = closeSheets;
   $("cancelroute").onclick = cancelRoute;
   $("startnav").onclick = function () { if (!st.pos && !st.sim) toast("Nog geen GPS. Navigeren start zodra je locatie bekend is.", false, 4000); startGps(); startNav(); };
   $("stopnav").onclick = function () { stopNav(false); };
@@ -1320,7 +1500,7 @@ function wire() {
   $("closesettings").onclick = closeSheets;
   $("scrim").onclick = closeSheets;
   $("testvoice").onclick = function () { say("Over 300 meter, sla rechtsaf.", true); };
-  $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); };
+  $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); if (!S.voice && window.speechSynthesis) speechSynthesis.cancel(); if (!S.voice && NATIVE && PL.TextToSpeech) { try { PL.TextToSpeech.stop(); } catch (e) {} } };
   $("s-flits").checked = S.flits; $("s-flits").onchange = function () { S.flits = this.checked; saveS(); drawCams(); prepRouteWarnings(); if (!S.flits) hideAlert(); };
   $("s-traffic").checked = S.traffic; $("s-traffic").onchange = function () { S.traffic = this.checked; saveS(); drawTraffic(); prepRouteWarnings(); };
   $("s-flow").checked = S.flow; $("s-flow").onchange = function () { S.flow = this.checked; saveS(); setFlowLayer(); };
@@ -1338,13 +1518,35 @@ function wire() {
     fetchLive(box, true).then(function () { setTrafInfo(); toast(live.ok.tomtom === false || live.ok.here === false ? "Een sleutel werkt niet. Controleer hem." : "Opgeslagen."); });
   };
   $("s-moes").checked = S.moes; $("s-moes").onchange = function () { S.moes = this.checked; saveS(); updateMoes(); };
+  function seg(id, key, after) {
+    var box = $(id); if (!box) return;
+    function mark() { Array.prototype.forEach.call(box.querySelectorAll("button"), function (b) { b.classList.toggle("on", b.dataset.v === S[key]); }); }
+    Array.prototype.forEach.call(box.querySelectorAll("button"), function (b) { b.onclick = function () { S[key] = b.dataset.v; saveS(); mark(); if (after) after(); }; });
+    mark();
+  }
+  seg("seg-theme", "theme", function () { applyTheme(true); });
+  seg("seg-saver", "saver", function () { applySaver(); });
+  $("s-moesvoice").checked = S.moesVoice; $("s-moesvoice").onchange = function () { S.moesVoice = this.checked; saveS(); say(S.moesVoice ? "Hoi! Ik ben Moes, ik wijs je de weg." : "Over 300 meter, sla rechtsaf.", true); };
+  [["s-notoll", "noToll"], ["s-nomotorway", "noMotorway"], ["s-noferry", "noFerry"]].forEach(function (x) {
+    $(x[0]).checked = S[x[1]];
+    $(x[0]).onchange = function () { S[x[1]] = this.checked; saveS(); if (!useMapboxApi() && this.checked) toast("Vermijden werkt alleen met een Mapbox-sleutel.", false, 4000); if (st.dest && !st.nav) chooseDest(st.dest); };
+  });
+  $("avoidinfo").textContent = useMapboxApi() ? "Geldt voor nieuwe routes." : "Vermijden werkt alleen met een Mapbox-sleutel (zie 3D-kaart).";
+  $("clearfav").onclick = function () { store("favs", { home: null, work: null, list: [] }); setFavInfo(); toast("Favorieten gewist."); };
+  $("addstop").onclick = function () {
+    st.addingStop = true; closeSheets(); $("q").value = ""; $("qclear").hidden = true; $("q").placeholder = "Tussenstop zoeken…"; $("q").focus(); showRecents();
+  };
+  $("favbtn").onclick = function () { $("favpick").hidden = !$("favpick").hidden; };
+  Array.prototype.forEach.call(document.querySelectorAll("#favpick button"), function (b) { b.onclick = function () { if (st.dest) saveFav(b.dataset.fav, st.dest); $("favpick").hidden = true; }; });
+  $("bgallow").onclick = function () { askBackground(true); };
+  if (!NATIVE) $("bgrow").hidden = true;
+  setFavInfo();
   $("s-avoid").checked = S.avoid; $("s-avoid").onchange = function () { S.avoid = this.checked; saveS(); if (st.routes.length && !st.nav) { st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes(); } };
-  $("clearmine").onclick = function () { mine = []; store("mine", mine); drawCams(); setFlitsInfo(); toast("Je meldingen zijn gewist."); };
   $("simulate").onclick = startSim;
 
   /* Android-terugknop */
   if (NATIVE && PL.App) PL.App.addListener("backButton", function () {
-    if (!$("settings").hidden || !$("reportsheet").hidden) closeSheets();
+    if (!$("settings").hidden) closeSheets();
     else if (st.nav) { if (confirmStop()) stopNav(false); }
     else if (st.dest) cancelRoute();
     else PL.App.minimizeApp ? PL.App.minimizeApp() : PL.App.exitApp();
@@ -1356,6 +1558,7 @@ var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
 
 /* ---------- start ---------- */
+applySaver(); setTimeout(checkBackground, 1200);
 if (window.Mascot) {
   moes = new Mascot($("moes")); updateMoes();
   $("moes").addEventListener("click", moesTap);

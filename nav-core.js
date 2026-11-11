@@ -46,6 +46,8 @@
       case "depart":
         text = road ? "Vertrek via " + road : "Vertrek";
         icon = { kind: "turn", mod: "straight" }; break;
+      case "waypoint":
+        text = "Tussenstop bereikt"; icon = { kind: "arrive" }; break;
       case "arrive":
         text = (mod === "left" || mod === "slight left" || mod === "sharp left") ? "Je bestemming ligt links" :
           (mod === "right" || mod === "slight right" || mod === "sharp right") ? "Je bestemming ligt rechts" : "Je bent op je bestemming";
@@ -90,6 +92,7 @@
     }
     if (mod === "uturn") icon = { kind: "uturn" };
     /* rechtdoor en "nieuwe naam" zeggen we niet hardop: dat is alleen ruis */
+    if (type === "waypoint") return { text: text, voice: "Je bent bij je tussenstop", icon: icon, road: road, silent: false };
     var silent = (type === "new name" || type === "continue" || type === "use lane" || type === "notification") && mod === "straight";
     var voice = text.replace(/ · /g, ", ").replace(/\bA(\d+)\b/g, "A $1").replace(/\bN(\d+)\b/g, "N $1");
     return { text: text, voice: voice, icon: icon, road: road, silent: silent };
@@ -129,8 +132,9 @@
     legs.forEach(function (leg, li) {
       (leg.steps || []).forEach(function (s, si) {
         var g = (s.geometry && s.geometry.coordinates) || [];
-        var isLastArrive = s.maneuver && s.maneuver.type === "arrive" && li < legs.length - 1;
-        if (isLastArrive) return; /* tussenstop-aankomst overslaan */
+        var isStop = s.maneuver && s.maneuver.type === "arrive" && li < legs.length - 1;
+        if (isStop) s = Object.assign({}, s, { maneuver: Object.assign({}, s.maneuver, { type: "waypoint" }) });
+        var laterDepart = s.maneuver && s.maneuver.type === "depart" && li > 0;
         var startDist = total;
         g.forEach(function (c, i) {
           if (coords.length) {
@@ -145,6 +149,7 @@
           if (!coords.length) { coords.push(loc); cum.push(0); }
         }
         var ins = instruction(s);
+        if (laterDepart) ins.silent = true;
         steps.push({
           type: s.maneuver.type, mod: s.maneuver.modifier, loc: s.maneuver.location,
           startDist: startDist, dur: s.duration || 0, dist: s.distance || 0,
@@ -167,7 +172,22 @@
         ms = { cum: oc, sp: sp };
       }
     }
-    var route = { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, ms: ms, raw: osrm };
+    /* drukte per stukje weg (Mapbox annotations=congestion): alleen matig/zwaar/ernstig bewaren als lijnstukken */
+    var cong = [];
+    if (og && og.length > 1) {
+      var cl = [];
+      legs.forEach(function (leg) { ((leg.annotation && leg.annotation.congestion) || []).forEach(function (c) { cl.push(c); }); });
+      if (cl.length === og.length - 1) {
+        var curLvl = null, curPts = null;
+        cl.forEach(function (c, i) {
+          var lvl = c === "moderate" || c === "heavy" || c === "severe" ? c : null;
+          if (lvl !== curLvl) { if (curLvl && curPts.length > 1) cong.push({ level: curLvl, coords: curPts }); curLvl = lvl; curPts = lvl ? [og[i]] : null; }
+          if (lvl) curPts.push(og[i + 1]);
+        });
+        if (curLvl && curPts.length > 1) cong.push({ level: curLvl, coords: curPts });
+      }
+    }
+    var route = { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, ms: ms, cong: cong, raw: osrm };
     route.smooth = withCum(smoothPath(coords, 14));
     return route;
   }
