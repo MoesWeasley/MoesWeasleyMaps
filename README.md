@@ -103,7 +103,7 @@ MoesWeasley™
 
 ## Snelheidslimiet
 
-De limiet staat altijd in beeld, ook zonder route en zonder sleutel. Hij komt van de weg waar je rijdt in OpenStreetMap (gratis, via Overpass). Rond je positie worden de wegen in één keer opgehaald (ongeveer elke 450 m opnieuw), daarna wordt lokaal de weg onder je gezocht, in je rijrichting. Tijdsgebonden limieten zoals 100 overdag / 130 's avonds worden meegenomen. Met een Mapbox-route gaat de limiet van de route voor; bij een flitser de limiet van de flitser.
+De limiet staat altijd in beeld, ook zonder route en zonder sleutel. Hij komt van de weg waar je rijdt in OpenStreetMap (gratis, via Overpass). Rond je positie worden de wegen in één keer opgehaald (ongeveer elke 450 m opnieuw), daarna wordt lokaal de weg onder je gezocht, in je rijrichting. Tijdsgebonden limieten zoals 100 overdag / 130 's avonds worden meegenomen. Op rijkswegen gaat de officiële limiet van Rijkswaterstaat voor (PDOK Weggegevens, met tijden zoals 100 overdag / 130 's avonds). Met een Mapbox-route gaat de limiet van de route voor op OpenStreetMap; bij een flitser de limiet van de flitser.
 
 ## Verkeerslichten
 

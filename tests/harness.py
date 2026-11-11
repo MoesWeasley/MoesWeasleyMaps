@@ -73,6 +73,11 @@ def handler(r):
         return r.fulfill(json={"features": [p for p in PLACES if q[:3] in p["properties"]["name"].lower()]})
     if 'generativelanguage.googleapis.com' in u:
         return gemini(r)
+    if 'api.pdok.nl' in u:
+        CTL.setdefault("pdok", []); CTL["pdok"].append(u)
+        if not CTL.get("rws"): return r.fulfill(json={"type": "FeatureCollection", "features": [], "links": []})
+        F = lambda v, bt, et, pts: {"type": "Feature", "properties": {"omschr": str(v), "begintijd": bt, "eindtijd": et}, "geometry": {"type": "MultiLineString", "coordinates": [pts]}}
+        return r.fulfill(json={"type": "FeatureCollection", "features": [F(100, 6, 19, [A, [4.9, 52.3745], B]), F(130, 19, 6, [A, [4.9, 52.3745], B]), F(80, None, None, [B, C])], "links": []})
     if 'interpreter' in u:
         CTL.setdefault("overpass", 0); CTL["overpass"] += 1
         if CTL.get("osm") == "fail": return r.abort()
@@ -84,7 +89,7 @@ def handler(r):
             CTL.setdefault("sigq", 0); CTL["sigq"] += 1
             return r.fulfill(json={"elements": [{"type": "node", "id": 1, "lat": B[1], "lon": B[0]}, {"type": "node", "id": 2, "lat": B[1] + 0.00005, "lon": B[0]}, {"type": "node", "id": 3, "lat": C[1], "lon": C[0]}]})
         W = lambda tags, pts: {"type": "way", "tags": tags, "geometry": [{"lat": p[1], "lon": p[0]} for p in pts]}
-        return r.fulfill(json={"elements": [W({"highway": "secondary", "name": "Damrak", "maxspeed": "50"}, [A, [4.9, 52.3745], B]),
+        return r.fulfill(json={"elements": [W({"highway": CTL.get("hw", "secondary"), "name": "Damrak", "maxspeed": "50"}, [A, [4.9, 52.3745], B]),
             W({"highway": "residential", "name": "Prins Hendrikkade", "maxspeed": "30"}, [B, C]),
             W({"highway": "tertiary", "maxspeed": "NL:urban", "junction": "roundabout"}, [C, D, [4.918, 52.379]])]})
     if 'flitsers.json' in u: return r.fulfill(json={"updated": 1794370277, "cams": [{"id": "x1", "lat": 52.3791, "lon": 4.9029, "type": "vast", "max": 50}]})
@@ -100,7 +105,7 @@ class App:
         self.errs = []
         self.pg = self.ctx.new_page()
         self.pg.on('pageerror', lambda e: self.errs.append('JS: ' + str(e)))
-        self.pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and self.errs.append('console: ' + m.text))
+        self.pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and 'navigator.vibrate' not in m.text and self.errs.append('console: ' + m.text))
         self.ctx.route('**/*', handler)
         # langzame diensten nabootsen: window.__slow = /regex/
         self.pg.add_init_script("""window.__q=[];var __SR=function(){var s=this;this.start=function(){setTimeout(function(){var t=window.__q.shift()||'';if(t)s.onresult({results:[[{transcript:t}]]});s.onend()},400)};this.abort=function(){}};Object.defineProperty(window,'SpeechRecognition',{value:__SR,configurable:true,writable:true});Object.defineProperty(window,'webkitSpeechRecognition',{value:__SR,configurable:true,writable:true});""")

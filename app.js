@@ -1302,7 +1302,7 @@ function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; aler
 /* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
 function updateLimit() {
   /* volgorde: flitser in de buurt > route (Mapbox) > Mapbox vooruitkijken > OpenStreetMap-weg waar je nu rijdt */
-  var lim = st.camMax || st.roadLimit || st.osmLimit || null, kmh = st.speed * 3.6;
+  var lim = st.camMax || st.rwsLimit || st.roadLimit || st.osmLimit || null, kmh = st.speed * 3.6;
   if ($("limit").hidden !== !lim) $("limit").hidden = !lim; txt("limit", lim || "");
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
@@ -1387,6 +1387,52 @@ function osmLimit() {
   if (v !== st.osmLimit) { if (osm.cand === v) osm.candN++; else { osm.cand = v; osm.candN = 1; } if (osm.candN >= 2 || st.osmLimit == null) st.osmLimit = v; }
   else osm.candN = 0;
   st.osmRoad = m ? (m.way.tags.name || m.way.tags.ref || "") : "";
+  st.osmHw = m ? (m.way.tags.highway || "") : "";
+  rwsLimit();
+}
+
+/* ---------- officiële limieten op rijkswegen (Rijkswaterstaat, PDOK) als aanvulling ----------
+   Op een rijksweg gaat deze limiet voor op OpenStreetMap, inclusief tijden (bijv. 100 overdag, 130 's avonds). */
+var rws = { ways: [], at: null, t: 0, busy: false, fail: 0, nextTry: 0 };
+var RWS_URL = CFG.rwsUrl || "https://api.pdok.nl/rws/weggegevens/ogc/v1/collections/wegvak_max_snelheden/items";
+function inNL(p) { return p.lat > 50.7 && p.lat < 53.7 && p.lon > 3.2 && p.lon < 7.3; }
+function rwsFetch(lat, lon) {
+  rws.busy = true;
+  var dLat = 0.014, dLon = 0.022; /* ~1,5 km rondom */
+  var url = RWS_URL + "?f=json&limit=1000&bbox=" + [lon - dLon, lat - dLat, lon + dLon, lat + dLat].map(function (v) { return v.toFixed(5); }).join(","), out = [], pages = 0;
+  function page(u) {
+    return fetchJson(u, 15000).then(function (d) {
+      (d.features || []).forEach(function (f) {
+        var pr = f.properties || {}, v = parseInt(pr.omschr, 10), g = f.geometry || {};
+        if (!v || v < 5 || v > 200) return;
+        var lines = g.type === "MultiLineString" ? g.coordinates : g.type === "LineString" ? [g.coordinates] : [];
+        lines.forEach(function (ln) { if (ln.length > 1) out.push({ tags: { maxspeed: String(v) }, v: v, bt: pr.begintijd, et: pr.eindtijd, g: ln }); });
+      });
+      var nx = (d.links || []).filter(function (l) { return l.rel === "next"; })[0];
+      if (nx && ++pages < 5) return page(nx.href);
+    });
+  }
+  return page(url).then(function () {
+    rws.ways = out; rws.at = { lat: lat, lon: lon }; rws.t = Date.now(); rws.fail = 0;
+  }).catch(function () { rws.fail++; rws.nextTry = Date.now() + Math.min(300000, 20000 * rws.fail); })
+    .then(function () { rws.busy = false; rwsLimit(); updateLimit(); });
+}
+/* geldt deze limiet nu? begintijd/eindtijd zijn hele uren, bijv. 19 tot 6 */
+function rwsActive(w, h) {
+  if (w.bt == null || w.et == null || w.bt === w.et) return true;
+  var b = +w.bt, e = +w.et; return b < e ? (h >= b && h < e) : (h >= b || h < e);
+}
+function rwsLimit() {
+  if (!st.pos || !inNL(st.pos) || !RWS_URL) { st.rwsLimit = null; return; }
+  var p = st.pos, now = Date.now();
+  var far = !rws.at || N.distM(rws.at.lat, rws.at.lon, p.lat, p.lon) > 1000, old = now - rws.t > 30 * 60 * 1000;
+  if ((far || old) && !rws.busy && now > rws.nextTry) rwsFetch(p.lat, p.lon);
+  if (!rws.at || N.distM(rws.at.lat, rws.at.lon, p.lat, p.lon) > 1500) { st.rwsLimit = null; return; }
+  /* alleen als we op een grote weg rijden (niet op een parallelweg of straat ernaast) */
+  if (st.osmHw && !/^(motorway|trunk|primary)(_link)?$/.test(st.osmHw)) { st.rwsLimit = null; return; }
+  var h = new Date().getHours(), act = rws.ways.filter(function (w) { return rwsActive(w, h); });
+  var m = N.matchWay(act, p.lat, p.lon, st.speed > 2 ? st.heading : null, 15);
+  st.rwsLimit = m ? m.way.v : null;
 }
 (function () { var c = load("osmways", null); if (c && c.ways) { osm.ways = c.ways; osm.at = c.at; osm.t = c.t; } })();
 
@@ -1606,7 +1652,7 @@ function moesMotion() {
 function updateMoes() {
   if (!moes || document.hidden) return; /* scherm uit of app op de achtergrond: niet tekenen */
   var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
-  var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit || st.osmLimit;
+  var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.rwsLimit || st.roadLimit || st.osmLimit;
   if (st.speed < 0.8) { if (!stillSince) stillSince = now; } else stillSince = 0;
   /* korte reacties: alleen even schrikken/bezorgd kijken als een melding begint, daarna weer gewoon */
   var a = alertFor || "";
@@ -1721,7 +1767,7 @@ function aiStopListen() {
 /* ---- wat Smiesh weet over de rit ---- */
 function tripInfo() {
   var o = { tijd: hhmm(new Date()), snelheid_kmu: Math.round(st.speed * 3.6), rijdt: st.speed > 3, gps: !!st.pos };
-  var lim = st.camMax || st.roadLimit || st.osmLimit; if (lim) o.maximumsnelheid_kmu = lim;
+  var lim = st.camMax || st.rwsLimit || st.roadLimit || st.osmLimit; if (lim) o.maximumsnelheid_kmu = lim;
   var road = st.osmRoad || near.name || ($("street").hidden ? "" : $("street").textContent); if (road) o.straat = road;
   o.navigatie = !!(st.nav && st.route);
   if (st.nav && st.route) {
