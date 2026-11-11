@@ -102,7 +102,7 @@ body:not(.nav) #speed{bottom:calc(var(--sb) + 24px)}
 #speed.over{border-color:var(--err);color:var(--err)}
 #limit{position:fixed;left:70px;bottom:calc(var(--sb) + 160px);z-index:7;width:42px;height:42px;border-radius:50%;background:#fff;border:5px solid var(--err);display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:var(--shadow)}
 body:not(.nav) #limit{bottom:calc(var(--sb) + 80px)}
-#recenter{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 104px);z-index:6;background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:12px 18px;font-weight:700;color:var(--p1);display:flex;gap:8px;align-items:center}
+#recenter{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 146px);z-index:6;background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:12px 18px;font-weight:700;color:var(--p1);display:flex;gap:8px;align-items:center}
 #recenter svg{width:20px;height:20px}
 
 /* ---- waarschuwingen ---- */
@@ -186,6 +186,9 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 #banner,#alert{position:fixed}
 #banner,#alert:not(.traffic){text-shadow:0 1px 3px rgba(60,20,120,.35)}
 #navbar .eta span,.res small,.sheet .sub{color:#4b4f80}
+#street{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 92px);z-index:6;max-width:62vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding:8px 16px;border-radius:999px;font-weight:700;font-size:15px;color:var(--ink);
+  background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow)}
 /* glazen pijl */
 .me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
   -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
@@ -233,6 +236,7 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
   <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
 <div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#ng)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+<div id="street" hidden></div>
 <div id="speed"><b id="spd">0</b><small>km/u</small></div>
 <div id="limit" hidden></div>
 <button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>

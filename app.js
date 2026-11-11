@@ -144,44 +144,54 @@ function addLayers() {
   map.addSource("cams", { type: "geojson", data: EMPTY });
   map.addSource("traffic", { type: "geojson", data: EMPTY });
   var before = map.getLayer("road_label") ? "road_label" : undefined;
-  map.addLayer({ id: "alts-case", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#6e6aa8", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 6, 16, 14], "line-opacity": .5 } }, before);
-  map.addLayer({ id: "alts-line", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c9c3ff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 10] } }, before);
+  map.addLayer({ id: "alts-case", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 16, 16], "line-opacity": .9 } }, before);
+  map.addLayer({ id: "alts-line", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#b9a6ff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 10], "line-opacity": .85 } }, before);
   map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c24dff", "line-opacity": .35, "line-blur": 8, "line-width": ["interpolate", ["linear"], ["zoom"], 8, 14, 16, 34] } }, before);
   map.addLayer({ id: "route-case", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 8, 16, 18] } }, before);
   map.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#7b5cff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 5, 16, 12],
     "line-gradient": ["interpolate", ["linear"], ["line-progress"], 0, "#7b5cff", 0.45, "#c24dff", 0.8, "#ff4fa3", 1, "#ff9a3c"] } }, before);
+  map.addLayer({ id: "traffic-glow", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 10, 15, 24], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
+  map.addLayer({ id: "cams-glow", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 10, 15, 26], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addLayer({ id: "traffic-c", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 15, 9], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
   map.addLayer({ id: "cams-c", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 15, 10], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2.5 } });
   map.on("click", "alts-line", function (e) { var f = e.features && e.features[0]; if (f && !st.nav) selectRoute(f.properties.i); });
   map.on("click", "cams-c", function (e) { var p = e.features[0].properties; toast(camLabel(p.type) + (p.max ? " · " + p.max + " km/u" : "") + (p.own ? " · jouw melding" : p.community ? " · gemeld" : "")); });
   map.on("click", "traffic-c", function (e) { var p = e.features[0].properties; toast((TRAF[p.t] || TRAF.overig).l); });
 }
+/* gebouwen: hoe hoger, hoe blauwer (roze → paars → blauw) */
+var BUILD_COL = ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], ["get", "h"], 8], 0, "#ffc4e6", 15, "#e0b8ff", 35, "#a9a4ff", 70, "#6fb6ff"];
 /* kaart in de kleuren van de app: zachte pastels, 3D-gebouwen en een lucht aan de horizon */
 function styleMap() {
   var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false;
   function paint(id, k, v) { try { map.setPaintProperty(id, k, v); } catch (e) {} }
   layers.forEach(function (l) {
     var id = l.id.toLowerCase(), t = l.type;
-    if (t === "background") paint(l.id, "background-color", "#f6f3ff");
-    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) paint(l.id, "fill-color", "#8fd0ff");
-    else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#8fd0ff");
-    else if (t === "fill" && /park|wood|forest|grass|meadow|landcover|scrub|green|garden/.test(id)) paint(l.id, "fill-color", "#bdf0d2");
-    else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", "#e4daff"); paint(l.id, "fill-extrusion-opacity", 0.82); }
-    else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#e9e3fb");
-    else if (t === "fill" && /residential|landuse|commercial|industrial/.test(id)) paint(l.id, "fill-color", "#f0ebfd");
-    else if (t === "line" && /motorway|trunk/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffd59e");
-    else if (t === "line" && /primary|secondary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#fff0c4");
+    if (t === "background") paint(l.id, "background-color", "#efe8ff");
+    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", "#49bfff"); paint(l.id, "fill-opacity", 0.9); }
+    else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#49bfff");
+    else if (t === "fill" && /wood|forest/.test(id)) paint(l.id, "fill-color", "#52d98a");
+    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden|pitch/.test(id)) paint(l.id, "fill-color", "#7ee6a8");
+    else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", BUILD_COL); paint(l.id, "fill-extrusion-opacity", 0.88); }
+    else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#f1d4ff");
+    else if (t === "fill" && /commercial|retail/.test(id)) paint(l.id, "fill-color", "#ffe0c7");
+    else if (t === "fill" && /industrial/.test(id)) paint(l.id, "fill-color", "#e2dcff");
+    else if (t === "fill" && /residential|landuse/.test(id)) paint(l.id, "fill-color", "#fbe3f4");
+    else if (t === "line" && /motorway|trunk/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffa45c");
+    else if (t === "line" && /motorway|trunk/.test(id) && /casing/.test(id)) paint(l.id, "line-color", "#ff6f91");
+    else if (t === "line" && /primary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#ffd166");
+    else if (t === "line" && /secondary|tertiary/.test(id) && !/casing|tunnel/.test(id)) paint(l.id, "line-color", "#fff0a8");
+    else if (t === "line" && /casing/.test(id)) paint(l.id, "line-color", "#d9cdf5");
   });
   var src = map.getSource("openmaptiles") ? "openmaptiles" : null;
   if (!has3d && src) {
     try {
       map.addLayer({ id: "mw-3d", type: "fill-extrusion", source: src, "source-layer": "building", minzoom: 14,
-        paint: { "fill-extrusion-color": "#e4daff", "fill-extrusion-opacity": 0.82,
+        paint: { "fill-extrusion-color": BUILD_COL, "fill-extrusion-opacity": 0.88,
           "fill-extrusion-height": ["coalesce", ["get", "render_height"], 8], "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0] } });
     } catch (e) {}
   }
   if (typeof map.setSky === "function") {
-    try { map.setSky({ "sky-color": "#b6a4ff", "horizon-color": "#ffd3ec", "fog-color": "#f6f3ff", "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.35 }); } catch (e) {}
+    try { map.setSky({ "sky-color": "#8f7bff", "horizon-color": "#ffb3dd", "fog-color": "#efe8ff", "sky-horizon-blend": 0.7, "horizon-fog-blend": 0.6, "fog-ground-blend": 0.35 }); } catch (e) {}
   }
 }
 function setData(id, fc) { if (mapReady && map.getSource(id)) map.getSource(id).setData(fc); }
@@ -486,7 +496,7 @@ function stopNav(silent) {
   document.body.classList.remove("nav");
   $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true; $("mute").hidden = false;
   hideAlert(); keepAwake(false);
-  $("navarrow").hidden = true; if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
+  $("navarrow").hidden = true; $("street").hidden = true; if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
   if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
   if (!silent) cancelRoute(); else { st.routes = []; drawRoutes(); if (destMarker) destMarker.remove(); }
 }
@@ -504,6 +514,7 @@ function navUpdate(along) {
   $("btext").textContent = s.type === "arrive" ? s.text : s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, "");
   var extra = (s.text.match(/ (richting .*)$/) || [])[1];
   $("broad").textContent = s.road || (extra ? extra : "");
+  var cur = r.steps[i - 1] && r.steps[i - 1].road; $("street").textContent = cur || ""; $("street").hidden = !cur;
   var nx = r.steps[i + 1], close = nx && nx.startDist - s.startDist < 160 && !nx.silent;
   $("then").hidden = !close;
   if (close) $("thenic").innerHTML = maneuverSVG(nx.icon);
@@ -883,5 +894,5 @@ setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */
-window.__mn = { st: st, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG };
+window.__mn = { st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG };
 })();
