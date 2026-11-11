@@ -265,11 +265,11 @@ function initMap() {
   map.on("touchstart", function (e) {
     if (st.nav || !e.originalEvent.touches || e.originalEvent.touches.length !== 1) return;
     lpStart = e.point; var ll = e.lngLat;
-    lpT = setTimeout(function () { vibrate(30); chooseDest({ lat: ll.lat, lon: ll.lng, name: "Gekozen punt", sub: ll.lat.toFixed(5) + ", " + ll.lng.toFixed(5) }); }, 650);
+    lpT = setTimeout(function () { vibrate(30); chooseDest({ picked: true, lat: ll.lat, lon: ll.lng, name: "Gekozen punt", sub: ll.lat.toFixed(5) + ", " + ll.lng.toFixed(5) }); }, 650);
   });
   map.on("touchmove", function (e) { if (lpT && lpStart && (Math.abs(e.point.x - lpStart.x) > 10 || Math.abs(e.point.y - lpStart.y) > 10)) { clearTimeout(lpT); lpT = null; } });
   map.on("touchend", function () { clearTimeout(lpT); lpT = null; });
-  map.on("contextmenu", function (e) { if (!st.nav) chooseDest({ lat: e.lngLat.lat, lon: e.lngLat.lng, name: "Gekozen punt", sub: e.lngLat.lat.toFixed(5) + ", " + e.lngLat.lng.toFixed(5) }); });
+  map.on("contextmenu", function (e) { if (!st.nav) chooseDest({ picked: true, lat: e.lngLat.lat, lon: e.lngLat.lng, name: "Gekozen punt", sub: e.lngLat.lat.toFixed(5) + ", " + e.lngLat.lng.toFixed(5) }); });
 
   var el = document.createElement("div"); el.className = "me nofix";
   el.innerHTML = '<svg viewBox="0 0 40 40"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#mg)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
@@ -523,8 +523,12 @@ var st = {
 var gpsStop = null, gotFix = false;
 function startGps() {
   if (gpsStop) return;
+  st.gpsDenied = false;
   function onErr(code) {
-    if (code === 1) toast("Geen toegang tot je locatie. Zet locatie aan voor deze app.", true, 6000);
+    if (code === 1) {
+      st.gpsDenied = true; if (gpsStop) { try { gpsStop(); } catch (e) {} gpsStop = null; } /* later opnieuw kunnen vragen */
+      toast("Geen toegang tot je locatie. Zet locatie aan voor deze app.", true, 6000);
+    }
   }
   var BG = NATIVE && PL.BackgroundGeolocation;
   if (BG) {
@@ -719,7 +723,7 @@ function mapboxSearch(q, here) {
   }).catch(function () { return []; });
 }
 function search(q) {
-  var seq = ++qSeq, here = st.pos || (map ? { lat: map.getCenter().lat, lon: map.getCenter().lng } : null);
+  var netFail = false, seq = ++qSeq, here = st.pos || (map ? { lat: map.getCenter().lat, lon: map.getCenter().lng } : null);
   var pu = CFG.photon + "?limit=8&q=" + encodeURIComponent(q) + (here ? "&lat=" + here.lat.toFixed(4) + "&lon=" + here.lon.toFixed(4) : "");
   var mb = mapboxSearch(q, here);
   fetchJson(pu, 8000).then(function (d) {
@@ -732,7 +736,7 @@ function search(q) {
     return fetchJson(nu, 8000).then(function (d) {
       return d.map(function (x) { var parts = x.display_name.split(", "); return { lat: +x.lat, lon: +x.lon, name: x.name || parts[0], sub: parts.slice(1, 3).join(", ") }; });
     });
-  }).catch(function () { return []; }).then(function (list) {
+  }).catch(function () { netFail = true; return []; }).then(function (list) {
     return mb.then(function (m) {
       /* samenvoegen: Mapbox eerst, dubbele (zelfde naam binnen 80 m) eruit */
       var all = m.concat(list).filter(function (r, i, arr) {
@@ -743,7 +747,7 @@ function search(q) {
   }).then(function (list) {
     if (seq !== qSeq) return;
     if (here) list.forEach(function (r) { r.dist = N.distM(here.lat, here.lon, r.lat, r.lon); });
-    if (!list.length) { $("results").innerHTML = '<div class="reshead">Niets gevonden voor "' + esc(q) + '"</div>'; $("results").hidden = false; return; }
+    if (!list.length) { $("results").innerHTML = '<div class="reshead">' + (netFail ? "Zoeken lukt niet. Is er internet?" : 'Niets gevonden voor "' + esc(q) + '"') + "</div>"; $("results").hidden = false; return; }
     showResults(list);
   }).catch(function () { if (seq === qSeq) toast("Zoeken lukt niet. Is er internet?", true); });
 }
@@ -757,8 +761,12 @@ function wireSearch() {
   });
   q.addEventListener("focus", function () { if (!q.value.trim()) showRecents(); });
   q.addEventListener("keydown", function (e) { if (e.key === "Enter" && q.value.trim()) { clearTimeout(qT); search(q.value.trim()); } });
-  $("qclear").onclick = function () { q.value = ""; $("qclear").hidden = true; $("results").hidden = true; if (st.dest) cancelRoute(); };
-  document.addEventListener("pointerdown", function (e) { if (!$("top").contains(e.target)) $("results").hidden = true; });
+  $("qclear").onclick = function () {
+    q.value = ""; $("qclear").hidden = true;
+    if (st.addingStop) { q.focus(); showRecents(); return; } /* alleen de tekst wissen, tussenstop zoeken blijft */
+    $("results").hidden = true; if (st.dest) cancelRoute();
+  };
+  document.addEventListener("pointerdown", function (e) { if (!$("top").contains(e.target)) { $("results").hidden = true; exitAddStop(); } });
 }
 /* ---------- favorieten ---------- */
 function favs() { return load("favs", { home: null, work: null, list: [] }); }
@@ -839,9 +847,12 @@ function chooseDest(d) {
   }
   if (!st.dest || N.distM(st.dest.lat, st.dest.lon, d.lat, d.lon) > 5) st.stops = [];
   stopDrive();
-  st.dest = d; addRecent(d);
+  st.dest = d; if (!d.picked) addRecent(d);
+  $("q").value = d.name; $("qclear").hidden = false;
+  if (d.picked) placeName(d);
   $("destname").textContent = d.name; $("destsub").textContent = d.sub || "";
   $("alts").innerHTML = '<div class="alt sel"><div class="t">…</div><div class="d">Route berekenen</div></div>';
+  st.routes = []; $("startnav").disabled = true;
   $("routewarn").hidden = true; $("favpick").hidden = true; renderStops();
   openSheet("routesheet");
   if (!destMarker && GL) {
@@ -856,15 +867,28 @@ function chooseDest(d) {
   st.follow = false; st.freeFollow = false;
   fetchRoutes(from, d, null).then(function (routes) {
     if (st.dest !== d) return;
-    st.routes = routes; st.sel = scoreRoutes(routes);
+    st.routes = routes; st.sel = scoreRoutes(routes); $("startnav").disabled = false;
     renderAlts(); drawRoutes(); fitRoutes();
     fetchLive(routesBox(routes), true).then(function (changed) {
       if (!changed || st.dest !== d || st.nav) return;
       st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes();
     });
   }).catch(function (e) {
-    $("alts").innerHTML = '<div class="alt"><div class="t">Geen route</div><div class="d">' + esc(/abort/i.test(String(e)) ? "De routeplanner reageert niet." : "Probeer het opnieuw of kies een ander punt.") + "</div></div>";
+    if (st.dest !== d) return;
+    var why = /abort/i.test(String(e)) ? "De routeplanner reageert niet." : /HTTP|fetch|network|bron/i.test(String(e)) && !navigator.onLine ? "Geen internet." : /HTTP|fetch|network|bron/i.test(String(e)) ? "De routeplanner is niet bereikbaar." : "Geen weg gevonden naar dit punt.";
+    $("alts").innerHTML = '<div class="alt"><div class="t">Geen route</div><div class="d">' + esc(why) + '</div></div><button class="alt retry" id="retryroute"><div class="t">↻</div><div class="d">Opnieuw proberen</div></button>';
+    $("retryroute").onclick = function () { chooseDest(d); };
   });
+}
+/* gekozen punt op de kaart: straat en plaats erbij zoeken */
+function placeName(d) {
+  var u = String(CFG.photon || "").replace(/\/api\/?$/, "/reverse") + "?lat=" + d.lat.toFixed(6) + "&lon=" + d.lon.toFixed(6) + "&limit=1";
+  fetchJson(u, 6000).then(function (r) {
+    var f = r && r.features && r.features[0]; if (!f || st.dest !== d) return;
+    var l = photonLabel(f); d.name = l.name; d.sub = l.sub; d.picked = false;
+    $("destname").textContent = d.name; $("destsub").textContent = d.sub; if (!st.nav) $("q").value = d.name;
+    addRecent(d);
+  }).catch(function () {});
 }
 function renderAlts() {
   $("alts").innerHTML = st.routes.map(function (r, i) {
@@ -910,6 +934,12 @@ function renderStops() {
     b.onclick = function () { st.stops.splice(+b.dataset.i, 1); chooseDest(st.dest); };
   });
   $("addstop").hidden = (st.stops || []).length >= 3;
+}
+function exitAddStop() {
+  if (!st.addingStop) return false;
+  st.addingStop = false; $("q").placeholder = "Waar wil je heen?"; $("results").hidden = true; $("q").blur();
+  if (st.dest) { $("q").value = st.dest.name; $("qclear").hidden = false; openSheet("routesheet"); }
+  return true;
 }
 function cancelRoute() {
   st.stops = []; st.addingStop = false; $("q").placeholder = "Waar wil je heen?";
@@ -986,7 +1016,15 @@ function navUpdate(along) {
   var th = N.thresholds(st.speed), gap = s.startDist - (r.steps[i - 1] ? r.steps[i - 1].startDist : 0);
   var then = close ? ", daarna " + lc(nx.voice) : "";
   if (s.type === "arrive") {
-    if (!st.said[i + "p"] && dist <= th.prep && dist > 60) { st.said[i + "p"] = true; say("Over " + N.sayDist(dist) + " " + lc(s.voice)); }
+    if (!st.said[i + "p"] && dist <= th.prep && dist > 60) {
+      st.said[i + "p"] = true;
+      say("Over " + N.sayDist(dist) + " ben je op je bestemming" + (/links/.test(s.voice) ? ", aan de linkerkant" : /rechts/.test(s.voice) ? ", aan de rechterkant" : ""));
+    }
+    return;
+  }
+  if (s.type === "waypoint") {
+    if (dist <= th.now) { if (!st.said[i + "n"]) { st.said[i + "n"] = st.said[i + "p"] = true; say(s.voice); } }
+    else if (dist <= th.prep && !st.said[i + "p"] && dist > th.now + 25) { st.said[i + "p"] = true; say("Over " + N.sayDist(dist) + " ben je bij je tussenstop"); }
     return;
   }
   if (dist <= th.now) {
@@ -1060,7 +1098,12 @@ function reroute() {
     var best = scoreRoutes(routes);
     st.route = routes[best]; st.routes = routes; st.sel = best; st.hint = 0; st.offCount = 0; st.said = {}; anim.aRoute = null;
     prepRouteWarnings(); drawRoutes();
-  }).catch(function () { toast("Geen nieuwe route gevonden, ik probeer het zo weer.", true); })
+    if (st.pos) { var loc = N.locate(st.route, st.pos.lat, st.pos.lon, 0); st.hint = loc.idx; navUpdate(loc.along); }
+  }).catch(function () {
+    if (!st.nav) return;
+    $("bdist").textContent = "↻"; $("btext").textContent = "Buiten de route"; $("broad").textContent = "Geen nieuwe route gevonden, ik probeer het zo opnieuw";
+    toast("Geen nieuwe route gevonden, ik probeer het zo weer.", true);
+  })
     .then(function () { st.rerouting = false; });
 }
 
@@ -1599,6 +1642,7 @@ function wire() {
     if (st.drive) { stopDrive(); toast("Rijmodus uit"); return; }
     startGps();
     if (st.pos && map) { st.freeFollow = true; st.follow = true; map.easeTo({ center: [st.pos.lon, st.pos.lat], zoom: Math.max(15, map.getZoom()), duration: 600 }); }
+    else if (st.gpsDenied) toast("Geen toegang tot je locatie. Zet locatie aan voor deze app.", true, 6000);
     else toast("Locatie zoeken…");
   };
   $("recenter").onclick = function () { st.follow = true; $("recenter").hidden = true; if (st.pos) onPos({ lat: st.pos.lat, lon: st.pos.lon, acc: st.acc, speed: st.speed, heading: st.heading, t: Date.now() }, true); };
@@ -1606,7 +1650,8 @@ function wire() {
   $("startnav").onclick = function () { if (!st.pos && !st.sim) toast("Nog geen GPS. Navigeren start zodra je locatie bekend is.", false, 4000); startGps(); startNav(); };
   $("stopnav").onclick = function () { stopNav(false); };
   $("opensettings").onclick = function () { setFlitsInfo(); setTrafInfo(); openSheet("settings"); };
-  $("closesettings").onclick = closeSheets;
+  $("closesettings").onclick = function () { closeSheets(); if (st.dest && !st.nav && st.routes.length) openSheet("routesheet"); };
+  $("navset").onclick = function () { setFlitsInfo(); setTrafInfo(); openSheet("settings"); };
   $("scrim").onclick = closeSheets;
   $("testvoice").onclick = function () { say("Over 300 meter, sla rechtsaf.", true); };
   $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); if (!S.voice && window.speechSynthesis) speechSynthesis.cancel(); if (!S.voice && NATIVE && PL.TextToSpeech) { try { PL.TextToSpeech.stop(); } catch (e) {} } };
@@ -1659,13 +1704,15 @@ function wire() {
 
   /* Android-terugknop */
   if (NATIVE && PL.App) PL.App.addListener("backButton", function () {
-    if (!$("settings").hidden) closeSheets();
+    if (exitAddStop()) return;
+    if (!$("results").hidden) { $("results").hidden = true; $("q").blur(); }
+    else if (!$("settings").hidden) { closeSheets(); if (st.dest && !st.nav) openSheet("routesheet"); }
     else if (st.nav) { if (confirmStop()) stopNav(false); }
     else if (st.dest) cancelRoute();
     else PL.App.minimizeApp ? PL.App.minimizeApp() : PL.App.exitApp();
   });
   if (NATIVE && PL.StatusBar) { try { PL.StatusBar.setOverlaysWebView({ overlay: true }); PL.StatusBar.setStyle({ style: "LIGHT" }); } catch (e) {} }
-  document.addEventListener("visibilitychange", function () { if (!document.hidden && st.nav) keepAwake(true); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && (st.nav || st.drive)) keepAwake(true); });
 }
 var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
