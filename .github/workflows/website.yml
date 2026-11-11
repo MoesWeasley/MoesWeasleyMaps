@@ -1,0 +1,39 @@
+name: Website (GitHub Pages)
+
+# Zet de app online op https://moesweasley.github.io/MoesWeasleyMaps/ bij elke wijziging aan de app.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'data/**'
+      - 'ndw.py'
+      - 'flitsers.py'
+      - '.github/workflows/ndw-data.yml'
+      - '.github/workflows/flitsers.yml'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Kaartbibliotheek ophalen
+        run: npm install --no-save --ignore-scripts maplibre-gl@4.7.1
+      - name: Bestanden klaarzetten
+        run: node prepare.js && touch www/.nojekyll
+      - name: Naar gh-pages zetten
+        run: |
+          cd www
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Website bijgewerkt"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
