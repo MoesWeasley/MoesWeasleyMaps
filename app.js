@@ -131,6 +131,7 @@ function pickVoice() {
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function say(text, force) {
   if (!text || (!S.voice && !force)) return;
+  if (moes && S.moes) moes.talk(400 + text.length * 62); /* Moes praat mee */
   if (NATIVE && PL.TextToSpeech) {
     try { PL.TextToSpeech.speak({ text: text, lang: "nl-NL", rate: 1.0, pitch: 1.0, volume: 1.0, category: "playback", queueStrategy: 1 }).catch(function () {}); } catch (e) {}
     return;
@@ -1147,7 +1148,52 @@ function updateLimit() {
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
 /* ---------- assistent Moes ---------- */
-var moes = null, stillSince = 0;
+var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null;
+function moesLine(state, dir) {
+  var DIRS = { "left": "Hier links!", "sharp left": "Scherp links!", "slight left": "Links aanhouden!", "right": "Hier rechts!", "sharp right": "Scherp rechts!",
+    "slight right": "Rechts aanhouden!", "straight": "Rechtdoor!", "uturn": "Omkeren!" };
+  if (state === "point") return st.nextMan && (st.nextMan.type === "roundabout" || st.nextMan.type === "rotary") ? "Rotonde!" : DIRS[dir] || null;
+  if (state === "shock") return "Flitser! Let op!";
+  if (state === "fast") return "Rustig aan!";
+  if (state === "worried") { var t = (alertFor || "").slice(1), x = activeTraffic().filter(function (i) { return String(i.id) === t; })[0]; return "Oei, " + ((x && TRAF[x.t]) ? TRAF[x.t].l.toLowerCase() : "drukte") + "…"; }
+  if (state === "happy") return "Joepie, we zijn er!";
+  if (state === "sleepy") return "Zzz…";
+  return null;
+}
+/* tikken op Moes */
+var TAPS = 0, tapT = null;
+function moesTap() {
+  if (!moes) return;
+  TAPS++; clearTimeout(tapT); tapT = setTimeout(function () { TAPS = 0; }, 2500);
+  var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Moes.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
+  if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
+  if (kmh > 5) lines.push("We gaan " + kmh + " km/u!");
+  if (TAPS >= 3) { moes.play("heart", true); moes.say("Ik vind jou ook lief!", 2200); TAPS = 0; return; }
+  moes.play("giggle", true); moes.say(lines[Math.floor(Math.random() * lines.length)], 2400);
+}
+/* uit zichzelf iets doen als het rustig is */
+function moesIdle() {
+  setTimeout(moesIdle, 6000 + Math.random() * 7000);
+  if (!moes || !S.moes || document.hidden) return;
+  if (moes.state === "sleepy") { if (Math.random() < 0.3) moes.play("yawn"); return; }
+  if (moes.state !== "idle") return;
+  var acts = ["look", "look", "wave", "scratch", "yawn"], a = acts[Math.floor(Math.random() * acts.length)];
+  if (moes.play(a) && a === "wave" && Math.random() < 0.5) moes.say(["Hallo!", "Hoi hoi!", "Gezellig!"][Math.floor(Math.random() * 3)], 1800);
+}
+/* draaien en optrekken van de auto doorgeven, zodat Moes meeleunt */
+var motionPrev = null;
+function moesMotion() {
+  if (!moes || !st.pos) return;
+  var now = Date.now(), b = anim.rot, v = st.speed;
+  if (motionPrev) {
+    var dt = (now - motionPrev.t) / 1000;
+    if (dt > 0.05) {
+      var db = ((b - motionPrev.b + 540) % 360) - 180;
+      moes.motion(st.speed > 2 ? db / dt : 0, (v - motionPrev.v) / dt);
+    }
+  }
+  motionPrev = { t: now, b: b, v: v };
+}
 function updateMoes() {
   if (!moes) return;
   var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
@@ -1160,6 +1206,12 @@ function updateMoes() {
   else if (st.arrived || (st.happyUntil && now < st.happyUntil)) state = "happy";
   else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist < Math.max(400, N.thresholds(st.speed).prep + 100)) { state = "point"; dir = st.nextMan.mod; }
   else if (stillSince && now - stillSince > 30000 && !st.nav) state = "sleepy";
+  if (state !== lastMoesState || (state === "point" && dir !== lastMoesDir)) {
+    var line = moesLine(state, dir);
+    if (line && (state !== "point" || lastMoesState !== "point" || dir !== lastMoesDir)) moes.say(line, state === "sleepy" ? 3000 : 2200);
+    lastMoesState = state; lastMoesDir = dir;
+  }
+  moes.speed(kmh);
   moes.set(state, dir);
 }
 setInterval(updateMoes, 500);
@@ -1297,7 +1349,13 @@ var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
 
 /* ---------- start ---------- */
-if (window.Mascot) { moes = new Mascot($("moes")); updateMoes(); }
+if (window.Mascot) {
+  moes = new Mascot($("moes")); updateMoes();
+  $("moes").addEventListener("click", moesTap);
+  setTimeout(moesIdle, 5000);
+  setInterval(moesMotion, 250);
+  setTimeout(function () { if (S.moes) { moes.play("wave", true); moes.say("Hoi! Ik ben Moes.", 2200); } }, 1500);
+}
 wire(); chooseEngine(initMap); setFlitsInfo(); setTrafInfo();
 loadFlitsers(); loadTraffic(); fbInit(); startGps();
 setInterval(loadTraffic, 10 * 60 * 1000);
