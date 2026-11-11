@@ -1,4 +1,4 @@
-/* Moes – de assistent van MoesWeasley Maps: een zittend wezeltje in een glazen bubbel.
+/* Smiesh (voorheen Moes) – de assistent van MoesWeasley Maps: een zittend wezeltje in een glazen bubbel.
    Standen: idle, point (wijst de afslag aan), shock (flitser), fast (te hard), worried (verkeer),
    happy (aangekomen), sleepy (lang stilstaan).
    Extra: kijkt rond, praat mee met de stem, doet uit zichzelf dingen (zwaaien, krabben, gapen,

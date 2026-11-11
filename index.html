@@ -220,7 +220,7 @@ body.guide #then{display:none}
 @keyframes topin{from{opacity:0;transform:translateY(-14px)}}
 body.drive #street{bottom:calc(var(--sb) + 28px)}
 body.drive #limit{bottom:calc(var(--sb) + 70px)}
-/* assistent Moes: zittend wezeltje in een eigen glazen bubbel boven de snelheidsmeter.
+/* assistent Smiesh: zittend wezeltje in een eigen glazen bubbel boven de snelheidsmeter.
    Houding, hoofd, armen en oren worden elk beeldje door veren in mascot.js bewogen. */
 #moes{position:fixed;left:12px;bottom:calc(var(--sb) + 106px);z-index:6;width:78px;height:92px;border-radius:30px;cursor:pointer;
   background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow);
@@ -315,7 +315,7 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 .zz{animation:moesZ 2.4s ease-in-out infinite}.z2{animation-delay:.8s}
 @keyframes moesZ{0%{opacity:0;transform:translateY(4px)}40%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
 .x-sparks>*{animation:moesSpark 1s ease-in-out infinite}@keyframes moesSpark{50%{opacity:.4}}
-/* tekstballonnetje van Moes */
+/* tekstballonnetje van Smiesh */
 .moes-say{position:absolute;left:84px;bottom:46px;max-width:56vw;padding:8px 12px;border-radius:16px 16px 16px 4px;font:700 14px/1.25 system-ui,sans-serif;color:#2a2060;
   background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.9);box-shadow:0 8px 22px rgba(60,40,140,.22);white-space:nowrap;pointer-events:none;
   transform-origin:0 100%}
@@ -512,12 +512,12 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
     <input class="key" id="k-tomtom" placeholder="TomTom API-sleutel" autocomplete="off" spellcheck="false">
     <input class="key" id="k-here" placeholder="HERE API-sleutel" autocomplete="off" spellcheck="false">
     <button class="small" id="savekeys" style="margin-top:8px">Opslaan</button></div>
-  <label class="set"><span>Assistent Moes<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
+  <label class="set"><span>Assistent Smiesh<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
   <label class="set"><span>Hulpdienstdetector<small id="detinfo">Nog niet gekoppeld.</small></span><input type="checkbox" class="sw" id="s-det"></label>
   <div class="set"><span>Detector<small>Gevoeligheid: hoger = eerder melden, maar vaker vals alarm.</small></span><span><button class="small" id="detpair">Koppelen</button> <button class="small" id="dettest">Testen</button></span></div>
   <div class="set"><span>Gevoeligheid</span><span class="seg" id="seg-det"><button data-v="16">Laag</button><button data-v="12">Normaal</button><button data-v="9">Hoog</button><button data-v="6">Max</button></span></div>
   <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
-  <label class="set"><span>Moes spreekt de aanwijzingen<small>De stem klinkt dan als Moes (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
+  <label class="set"><span>Smiesh spreekt de aanwijzingen<small>De stem klinkt dan als Smiesh (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
   <div class="set" style="display:block"><span>Route-opties<small id="avoidinfo">Vermijden werkt met een Mapbox-sleutel.</small></span>
     <label class="opt"><input type="checkbox" class="sw sm" id="s-notoll"> Tol vermijden</label>
     <label class="opt"><input type="checkbox" class="sw sm" id="s-nomotorway"> Snelwegen vermijden</label>

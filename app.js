@@ -131,6 +131,7 @@ function pickVoice() {
 if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function say(text, force) {
   if (!text || (!S.voice && !force)) return;
+  text = String(text).replace(/Smiesh/g, "Smiesj"); /* zo spreekt de Nederlandse stem zijn naam goed uit */
   if (moes && S.moes) moes.talk(400 + text.length * 62); /* Moes praat mee */
   /* Moes-stem: iets hoger en vrolijker */
   var mv = S.moes && S.moesVoice, pitch = mv ? 1.35 : 1.0, rate = mv ? 1.06 : 1.0;
@@ -1482,7 +1483,7 @@ function detAlert() {
   return true;
 }
 
-/* ---------- assistent Moes ---------- */
+/* ---------- assistent Smiesh (in de code nog "moes") ---------- */
 var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null, moesSeen = { key: null, until: 0, kind: "", fastOn: false, fastUntil: 0, fastCool: 0 };
 function moesLine(state, dir) {
   var DIRS = { "left": "Hier links!", "sharp left": "Scherp links!", "slight left": "Links aanhouden!", "right": "Hier rechts!", "sharp right": "Scherp rechts!",
@@ -1500,7 +1501,7 @@ var TAPS = 0, tapT = null, moesAwakeUntil = 0;
 function moesTap() {
   if (!moes) return;
   TAPS++; clearTimeout(tapT); tapT = setTimeout(function () { TAPS = 0; }, 2500);
-  var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Moes.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
+  var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Smiesh.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
   if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
   if (kmh > 5) lines.push("We gaan " + kmh + " km/u!");
   /* slaapt hij? dan schrikt hij eerst wakker, wrijft in zijn ogen en blijft daarna een tijdje wakker */
@@ -1704,7 +1705,7 @@ function wire() {
   }
   seg("seg-theme", "theme", function () { applyTheme(true); });
   seg("seg-saver", "saver", function () { applySaver(); });
-  $("s-moesvoice").checked = S.moesVoice; $("s-moesvoice").onchange = function () { S.moesVoice = this.checked; saveS(); say(S.moesVoice ? "Hoi! Ik ben Moes, ik wijs je de weg." : "Over 300 meter, sla rechtsaf.", true); };
+  $("s-moesvoice").checked = S.moesVoice; $("s-moesvoice").onchange = function () { S.moesVoice = this.checked; saveS(); say(S.moesVoice ? "Hoi! Ik ben Smiesh, ik wijs je de weg." : "Over 300 meter, sla rechtsaf.", true); };
   [["s-notoll", "noToll"], ["s-nomotorway", "noMotorway"], ["s-noferry", "noFerry"]].forEach(function (x) {
     $(x[0]).checked = S[x[1]];
     $(x[0]).onchange = function () { S[x[1]] = this.checked; saveS(); if (!useMapboxApi() && this.checked) toast("Vermijden werkt alleen met een Mapbox-sleutel.", false, 4000); if (st.dest && !st.nav) chooseDest(st.dest); };
@@ -1762,7 +1763,7 @@ if (window.Mascot) {
   setTimeout(function () {
     if (!S.moes) return;
     var h = new Date().getHours(), g = h < 6 ? "Wat ben je vroeg op!" : h < 12 ? "Goedemorgen!" : h < 18 ? "Goedemiddag!" : "Goedenavond!";
-    moes.play("wave", true); moes.say(g + " Ik ben Moes.", 2400);
+    moes.play("wave", true); moes.say(g + " Ik ben Smiesh.", 2400);
   }, 1500);
 }
 wire(); chooseEngine(initMap); setFlitsInfo(); setTrafInfo();
