@@ -18,14 +18,20 @@ const lines = [
   '<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />',
   '<uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />',
   '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />',
-  '<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />'
+  '<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />',
+  '<uses-permission android:name="android.permission.RECORD_AUDIO" />'
 ];
+/* spraakherkenning (Smiesh luistert): Android 11+ moet de herkenningsdienst mogen zien */
+if (!xml.includes("android.speech.RecognitionService")) {
+  xml = xml.replace(/(\s*)<application/, "\n    <queries><intent><action android:name=\"android.speech.RecognitionService\" /></intent></queries>$1<application");
+}
 const missing = lines.filter(l => !xml.includes(l.match(/android:name="([^"]+)"/)[0]));
 if (missing.length) {
   xml = xml.replace(/(\s*)<application/, "\n    " + missing.join("\n    ") + "\n$1<application");
   fs.writeFileSync(file, xml);
   console.log("Rechten toegevoegd:\n  " + missing.join("\n  "));
 } else {
+  fs.writeFileSync(file, xml);
   console.log("Rechten stonden er al in.");
 }
 

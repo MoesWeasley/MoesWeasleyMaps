@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto", signals: true }, load("set", {}));
+var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto", signals: true, ai: true }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -433,12 +433,10 @@ function addLayers() {
 var PAL = {
   light: { bg: "#efe8ff", water: "#49bfff", wood: "#52d98a", park: "#7ee6a8", bfill: "#f1d4ff", com: "#ffe0c7", ind: "#e2dcff", res: "#fbe3f4",
     mw: "#ffa45c", mwc: "#ff6f91", prim: "#ffd166", sec: "#fff0a8", casing: "#d9cdf5", minor: "#ffffff", text: "#3b2f6b", halo: "#ffffff",
-    build: ["#ffc4e6", "#e0b8ff", "#a9a4ff", "#6fb6ff"], sky: ["#8f7bff", "#ffb3dd", "#efe8ff"],
-    wBase: "#43bbfd", wHi: "rgba(255,255,255,0.32)", wLo: "rgba(10,110,220,0.22)", gBase: "#7ee6a8", gWood: "#4fd486", gBlade: "#2fb069", gBladeW: "#249a54", patch: "rgba(60,190,110,.18)" },
+    build: ["#ffc4e6", "#e0b8ff", "#a9a4ff", "#6fb6ff"], sky: ["#8f7bff", "#ffb3dd", "#efe8ff"] },
   dark: { bg: "#17142f", water: "#1f5fb8", wood: "#175a3c", park: "#1e6b4a", bfill: "#2c2752", com: "#2f2440", ind: "#26234a", res: "#221d42",
     mw: "#ff9f4a", mwc: "#b4445f", prim: "#e3b448", sec: "#8e845a", casing: "#0f0c24", minor: "#3a3466", text: "#d9d4ff", halo: "#17142f",
-    build: ["#4b3a7c", "#3f3a8c", "#34479c", "#2b56ad"], sky: ["#0c0a24", "#3b2a7a", "#17142f"],
-    wBase: "#1d4f9e", wHi: "rgba(160,210,255,0.22)", wLo: "rgba(0,20,60,0.35)", gBase: "#1e6b4a", gWood: "#175a3c", gBlade: "#2f9a62", gBladeW: "#23804f", patch: "rgba(0,40,20,.25)" }
+    build: ["#4b3a7c", "#3f3a8c", "#34479c", "#2b56ad"], sky: ["#0c0a24", "#3b2a7a", "#17142f"] }
 };
 function isDark() {
   if (S.theme === "dark") return true; if (S.theme === "light") return false;
@@ -446,106 +444,18 @@ function isDark() {
 }
 function P() { return isDark() ? PAL.dark : PAL.light; }
 function buildCol() { var b = P().build; return ["interpolate", ["linear"], ["to-number", ["coalesce", ["get", "render_height"], ["get", "h"], 8]], 0, b[0], 15, b[1], 35, b[2], 70, b[3]]; }
-/* ---------- levende kaart: golvend water, wiegend gras en bewegende bomen ----------
-   Patronen worden in de app zelf getekend (geen downloads) en ~15 keer per seconde ververst. */
-var LIVE = { ready: false, last: 0, size: 192, sprites: null };
-function liveRng(seed) { return function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
-function liveSprites() {
-  var r = liveRng(42), S2 = LIVE.size, sp = { spark: [], tufts: [], parkTrees: [], woodTrees: [], patches: [] };
-  for (var i = 0; i < 14; i++) sp.spark.push({ x: 10 + r() * (S2 - 20), y: 10 + r() * (S2 - 20), p: r() * 6.3 });
-  for (i = 0; i < 26; i++) sp.tufts.push({ x: 8 + r() * (S2 - 16), y: 12 + r() * (S2 - 20), p: r() * 6.3 });
-  for (i = 0; i < 6; i++) sp.patches.push({ x: 20 + r() * (S2 - 40), y: 20 + r() * (S2 - 40), r: 14 + r() * 16 });
-  function trees(n, list, rmin, rmax) {
-    var tries = 0;
-    while (list.length < n && tries++ < 500) {
-      var t = { r: rmin + r() * (rmax - rmin), p: r() * 6.3 };
-      t.x = t.r + 6 + r() * (S2 - 2 * t.r - 12); t.y = t.r + 6 + r() * (S2 - 2 * t.r - 12);
-      if (list.every(function (o) { return Math.hypot(o.x - t.x, o.y - t.y) > o.r + t.r + 3; })) list.push(t);
-    }
-  }
-  trees(3, sp.parkTrees, 11, 15); trees(11, sp.woodTrees, 10, 16);
-  return sp;
-}
-function drawWater(ctx, t) {
-  var S2 = LIVE.size, sp = LIVE.sprites;
-  var pl = P(); ctx.fillStyle = pl.wBase; ctx.fillRect(0, 0, S2, S2);
-  for (var row = 0; row < 4; row++) {
-    var y0 = row * 48 + 20;
-    ctx.beginPath();
-    for (var x = 0; x <= S2; x += 4) { var y = y0 + 5 * Math.sin(x / S2 * Math.PI * 4 + t * 1.5 + row * 1.3); if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
-    ctx.strokeStyle = pl.wHi; ctx.lineWidth = 3; ctx.stroke();
-    ctx.beginPath();
-    for (x = 0; x <= S2; x += 4) { var y2 = y0 + 16 + 3 * Math.sin(x / S2 * Math.PI * 6 - t * 1.1 + row); if (x === 0) ctx.moveTo(x, y2); else ctx.lineTo(x, y2); }
-    ctx.strokeStyle = pl.wLo; ctx.lineWidth = 2; ctx.stroke();
-  }
-  sp.spark.forEach(function (s) {
-    var a = Math.sin(t * 1.8 + s.p);
-    if (a > 0.55) { ctx.fillStyle = "rgba(255,255,255," + ((a - 0.55) * 2).toFixed(2) + ")"; ctx.beginPath(); ctx.arc(s.x, s.y, 2.4, 0, 7); ctx.fill(); }
-  });
-}
-function drawGreen(ctx, t, wood) {
-  var S2 = LIVE.size, sp = LIVE.sprites;
-  var pl = P(); ctx.fillStyle = wood ? pl.gWood : pl.gBase; ctx.fillRect(0, 0, S2, S2);
-  sp.patches.forEach(function (q) { ctx.fillStyle = pl.patch; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); });
-  /* wiegend gras */
-  ctx.lineCap = "round"; ctx.lineWidth = 2.3; ctx.strokeStyle = wood ? pl.gBladeW : pl.gBlade;
-  sp.tufts.forEach(function (g) {
-    var sw = 2.2 * Math.sin(t * 2.1 + g.p + g.x * 0.04);
-    for (var k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(g.x + k * 2.2, g.y); ctx.quadraticCurveTo(g.x + k * 3 + sw * 0.4, g.y - 5, g.x + k * 3.6 + sw * 1.3, g.y - 11 + Math.abs(k) * 2); ctx.stroke(); }
-  });
-  /* bomen: schaduw, kruin die zachtjes meebeweegt, lichtvlek */
-  (wood ? sp.woodTrees : sp.parkTrees).forEach(function (tr) {
-    var dx = 1.4 * Math.sin(t * 1.2 + tr.p), dy = 0.8 * Math.cos(t * 1.0 + tr.p);
-    ctx.fillStyle = "rgba(0,70,35,.22)"; ctx.beginPath(); ctx.ellipse(tr.x + 3, tr.y + 4, tr.r, tr.r * 0.85, 0, 0, 7); ctx.fill();
-    var g = ctx.createRadialGradient(tr.x + dx - tr.r * 0.3, tr.y + dy - tr.r * 0.35, 1, tr.x + dx, tr.y + dy, tr.r);
-    g.addColorStop(0, "#8ff0b4"); g.addColorStop(0.55, "#3cc777"); g.addColorStop(1, "#1f9a55");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tr.x + dx, tr.y + dy, tr.r, 0, 7); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.arc(tr.x + dx - tr.r * 0.35, tr.y + dy - tr.r * 0.4, tr.r * 0.28, 0, 7); ctx.fill();
-  });
-}
-function liveImage(draw, t, a) {
-  var c = LIVE.cv || (LIVE.cv = document.createElement("canvas")); c.width = c.height = LIVE.size;
-  var ctx = c.getContext("2d"); ctx.clearRect(0, 0, LIVE.size, LIVE.size); draw(ctx, t, a);
-  return ctx.getImageData(0, 0, LIVE.size, LIVE.size);
-}
-function liveSetup() {
-  if (LIVE.ready) return true;
-  try {
-    LIVE.sprites = liveSprites();
-    map.addImage("mw-water", liveImage(drawWater, 0), { pixelRatio: 2 });
-    map.addImage("mw-park", liveImage(drawGreen, 0, false), { pixelRatio: 2 });
-    map.addImage("mw-wood", liveImage(drawGreen, 0, true), { pixelRatio: 2 });
-    LIVE.ready = true; requestAnimationFrame(liveTick);
-  } catch (e) { LIVE.ready = false; }
-  return LIVE.ready;
-}
-function liveTick(now) {
-  if (!LIVE.ready) return;
-  if (now - LIVE.last > (SAVER ? 400 : 66) && !document.hidden && mapReady && map.getZoom() >= 11 && !(SAVER && LIVE.drawnOnce)) {
-    LIVE.drawnOnce = true;
-    LIVE.last = now; var t = now / 1000;
-    try {
-      map.updateImage("mw-water", liveImage(drawWater, t));
-      map.updateImage("mw-park", liveImage(drawGreen, t, false));
-      map.updateImage("mw-wood", liveImage(drawGreen, t, true));
-    } catch (e) {}
-  }
-  requestAnimationFrame(liveTick);
-}
-
 /* kaart in de kleuren van de app: zachte pastels, 3D-gebouwen en een lucht aan de horizon */
 function styleMap() {
-  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false, live = liveSetup(), pl = P();
+  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false, pl = P();
   GREEN_LAYERS = [];
   function paint(id, k, v) { try { map.setPaintProperty(id, k, v); } catch (e) {} }
-  function pattern(id, img) { if (live) { paint(id, "fill-pattern", img); paint(id, "fill-opacity", 0.95); } }
   layers.forEach(function (l) {
     var id = l.id.toLowerCase(), t = l.type;
     if (t === "background") paint(l.id, "background-color", pl.bg);
-    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", pl.water); paint(l.id, "fill-opacity", 0.9); pattern(l.id, "mw-water"); }
+    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", pl.water); paint(l.id, "fill-opacity", 0.9); }
     else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", pl.water);
-    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", pl.wood); pattern(l.id, "mw-wood"); GREEN_LAYERS.push(l.id); }
-    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", pl.park); pattern(l.id, "mw-park"); if (/park|wood|forest|garden/.test(id)) GREEN_LAYERS.push(l.id); }
+    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", pl.wood); GREEN_LAYERS.push(l.id); }
+    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", pl.park); if (/park|wood|forest|garden/.test(id)) GREEN_LAYERS.push(l.id); }
     else if (t === "fill" && /pitch/.test(id)) paint(l.id, "fill-color", pl.park);
     else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", buildCol()); paint(l.id, "fill-extrusion-opacity", 0.88); }
     else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", pl.bfill);
@@ -934,6 +844,7 @@ function chooseDest(d) {
     if (st.dest !== d) return;
     st.routes = routes; st.sel = scoreRoutes(routes); $("startnav").disabled = false;
     renderAlts(); drawRoutes(); fitRoutes();
+    if (st.aiAutoStart === d) { st.aiAutoStart = null; startNav(); }
     fetchLive(routesBox(routes), true).then(function (changed) {
       if (!changed || st.dest !== d || st.nav) return;
       st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes();
@@ -1414,7 +1325,6 @@ function applySaver() {
   var low = battery && !battery.charging && battery.level <= 0.2;
   SAVER = S.saver === "on" || (S.saver === "auto" && !!low);
   document.body.classList.toggle("saver", SAVER);
-  LIVE.drawnOnce = false;
   if ($("saverinfo")) $("saverinfo").textContent = SAVER ? "Staat aan: rustigere animaties, kaart beweegt minder." :
     (S.saver === "auto" ? "Gaat vanzelf aan onder 20% batterij (als je niet laadt)." : "Staat uit.");
 }
@@ -1637,10 +1547,12 @@ function moesTap() {
     TAPS = 0; stillSince = Date.now(); moesAwakeUntil = Date.now() + 3 * 60 * 1000;
     moes.set("idle"); lastMoesState = "idle"; moes.play("wake", true);
     var wl = ["Huh?! Ik sliep niet hoor!", "Wa-wat?! Ik ben wakker!", "Oei, je liet me schrikken!", "Hè? Zijn we er al?"][Math.floor(Math.random() * 4)];
+    if (aiReady()) { moes.say(wl, 1300); setTimeout(aiAsk, 1300); return; } /* wakker en meteen luisteren */
     moes.say(wl, 2200); if (S.moesVoice && S.voice) say(wl);
     setTimeout(function () { if (moes.state === "idle") moes.play("scratch", true); }, 1500);
     return;
   }
+  if (aiReady()) { TAPS = 0; moes.play("giggle", true); aiAsk(); return; }
   if (TAPS >= 3) { moes.play("heart", true); moes.say("Ik vind jou ook lief!", 2200); TAPS = 0; return; }
   var line = lines[Math.floor(Math.random() * lines.length)];
   moes.play("giggle", true); moes.say(line, 2400); if (S.moesVoice && S.voice) say(line);
@@ -1698,6 +1610,7 @@ function updateMoes() {
   if (!tooFast) moesSeen.fastOn = false;
   var state = "idle", dir = null;
   if (moesSeen.key && now < moesSeen.until && (moesSeen.kind === "c" || moesSeen.kind === "h")) state = "shock";
+  else if (AI.mode) state = AI.mode;
   else if (moesSeen.fastOn && now < moesSeen.fastUntil) state = "fast";
   else if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "t") state = "worried";
   else if (st.happyUntil && now < st.happyUntil) state = "happy";
@@ -1753,6 +1666,250 @@ function checkWarnings() {
   }
   if (alertFor) hideAlert(); else updateLimit();
   updateMoes();
+}
+
+/* ---------- Smiesh met AI (Google Gemini) ----------
+   Tik op Smiesh → hij luistert (spraakherkenning van de telefoon) → Gemini denkt na en mag functies van de app
+   gebruiken (ritinfo, plekken zoeken, route starten, instellingen) → Smiesh zegt het antwoord hardop. */
+var AI = { key: load("key_gemini", CFG.geminiKey || ""), mode: null, hist: [], places: [], model: null, busy: false, rec: null, seq: 0 };
+var AI_MODELS = CFG.geminiModels || ["gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
+function aiReady() { return S.ai && !!AI.key; }
+function aiSay(text, ms) {
+  if (!text) return;
+  if (moes && S.moes) moes.say(text, ms || Math.min(9000, 1800 + text.length * 55));
+  say(text, true);
+}
+/* ---- luisteren ---- */
+function aiListen() {
+  if (CFG.aiTyped) return Promise.resolve(window.prompt("Vraag het aan Smiesh:") || ""); /* demo: typen */
+  var SR = NATIVE && PL.SpeechRecognition;
+  if (SR) {
+    return SR.available().then(function (a) {
+      if (a && a.available === false) throw new Error("geen spraakherkenning");
+      return SR.checkPermissions ? SR.checkPermissions() : { speechRecognition: "prompt" };
+    }).then(function (p) {
+      if (p && p.speechRecognition !== "granted") return SR.requestPermissions();
+      return p;
+    }).then(function (p) {
+      if (p && p.speechRecognition && p.speechRecognition !== "granted") throw new Error("microfoon");
+      return SR.start({ language: "nl-NL", maxResults: 1, partialResults: false, popup: false });
+    }).then(function (r) { return (r && r.matches && r.matches[0]) || ""; });
+  }
+  var W = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (W) return new Promise(function (res, rej) {
+    var r = new W(), got = ""; AI.rec = r;
+    r.lang = "nl-NL"; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = function (e) { got = e.results[0][0].transcript; };
+    r.onerror = function (e) { rej(new Error(e.error === "not-allowed" ? "microfoon" : e.error || "fout")); };
+    r.onend = function () { AI.rec = null; res(got); };
+    r.start();
+  });
+  /* geen spraak (bijv. in de demo): typen */
+  return Promise.resolve(window.prompt("Vraag het aan Smiesh:") || "");
+}
+function aiStopListen() {
+  try { if (NATIVE && PL.SpeechRecognition) PL.SpeechRecognition.stop(); } catch (e) {}
+  try { if (AI.rec) AI.rec.abort(); } catch (e) {}
+}
+/* ---- wat Smiesh weet over de rit ---- */
+function tripInfo() {
+  var o = { tijd: hhmm(new Date()), snelheid_kmu: Math.round(st.speed * 3.6), rijdt: st.speed > 3, gps: !!st.pos };
+  var lim = st.camMax || st.roadLimit || st.osmLimit; if (lim) o.maximumsnelheid_kmu = lim;
+  var road = st.osmRoad || near.name || ($("street").hidden ? "" : $("street").textContent); if (road) o.straat = road;
+  o.navigatie = !!(st.nav && st.route);
+  if (st.nav && st.route) {
+    var al = st.along || 0, rem = N.remainingTime(st.route, al);
+    o.bestemming = st.dest ? st.dest.name : ""; o.aankomst = hhmm(new Date(Date.now() + rem * 1000));
+    o.resterend = N.fmtDur(rem) + ", " + N.fmtDist(Math.max(0, st.route.distance - al));
+    if (st.nextMan) o.volgende_aanwijzing = N.fmtDist(st.nextMan.dist) + ": " + ($("btext").textContent || "");
+    if (st.stops && st.stops.length) o.tussenstops = st.stops.map(function (x) { return x.name; });
+    o.flitsers_op_route = st.routeCams.filter(function (c) { return c.along > al; }).slice(0, 5).map(function (c) { return { soort: camLabel(c.p.type), over: N.fmtDist(c.along - al), max: c.p.max || null }; });
+    o.verkeer_op_route = st.routeTraf.filter(function (t) { return t.along > al; }).slice(0, 5).map(function (t) { return { soort: (TRAF[t.p.t] || TRAF.overig).l, over: N.fmtDist(t.along - al), vertraging_min: t.p.delay ? Math.round(t.p.delay / 60) : null }; });
+  } else if (st.dest && st.routes.length) {
+    var r = st.routes[st.sel]; o.gekozen_bestemming = st.dest.name; o.route_duur = N.fmtDur(r.duration); o.route_afstand = N.fmtDist(r.distance);
+  }
+  if (DET.connected) o.hulpdienstdetector = DET.active ? "hulpdienst in de buurt" : "rustig";
+  var f = favs(); o.favorieten = [f.home && "thuis", f.work && "werk"].filter(Boolean).concat(f.list.map(function (x) { return x.name; }));
+  return o;
+}
+/* ---- plekken zoeken: soorten via OpenStreetMap (dichtstbij), namen via de gewone zoekfunctie ---- */
+var AI_CAT = { tankstation: "amenity=fuel", laadpaal: "amenity=charging_station", parkeren: "amenity=parking", restaurant: "amenity~\"^(restaurant|fast_food)$\"",
+  koffie: "amenity=cafe", supermarkt: "shop=supermarket", toilet: "amenity=toilets", apotheek: "amenity=pharmacy", ziekenhuis: "amenity=hospital",
+  geldautomaat: "amenity=atm", hotel: "tourism=hotel", wegrestaurant: "highway=services", verzorgingsplaats: "highway~\"^(services|rest_area)$\"" };
+function aiCenter(waar) {
+  if (waar === "bestemming" && st.dest) return st.dest;
+  if (waar === "onderweg" && st.nav && st.route) {
+    var al = st.along || 0, ahead = Math.min(st.route.distance, al + Math.max(2000, Math.min(15000, (st.route.distance - al) / 2)));
+    var p = N.pointAt(st.route, ahead); return { lat: p.lat, lon: p.lon };
+  }
+  return st.pos || origin();
+}
+function aiFind(args) {
+  var c = aiCenter(args.waar), cat = AI_CAT[(args.soort || "").toLowerCase()];
+  if (!c) return Promise.resolve({ fout: "geen positie bekend" });
+  var job;
+  if (cat && OVERPASS.length) {
+    var q = "[out:json][timeout:15];nwr[" + cat + "](around:" + (args.waar === "onderweg" ? 4000 : 6000) + "," + c.lat.toFixed(5) + "," + c.lon.toFixed(5) + ");out center 25;";
+    job = firstOk(OVERPASS.map(function (u) { return u + "?data=" + encodeURIComponent(q); }), 15000).then(function (d) {
+      return (d.elements || []).map(function (e) {
+        var t = e.tags || {}, lat = e.lat != null ? e.lat : e.center && e.center.lat, lon = e.lon != null ? e.lon : e.center && e.center.lon;
+        return { lat: lat, lon: lon, name: t.name || t.brand || t.operator || args.soort, sub: [t["addr:street"], t["addr:city"]].filter(Boolean).join(", ") };
+      }).filter(function (x) { return x.lat != null; });
+    });
+  } else {
+    var text = args.naam || args.soort || "";
+    job = fetchJson(CFG.photon + "?limit=8&q=" + encodeURIComponent(text) + "&lat=" + c.lat.toFixed(4) + "&lon=" + c.lon.toFixed(4), 8000).then(function (d) {
+      return (d.features || []).map(function (f) { var l = photonLabel(f), g = f.geometry.coordinates; return { lat: g[1], lon: g[0], name: l.name, sub: l.sub }; });
+    });
+  }
+  return job.then(function (list) {
+    var here = st.pos || c;
+    list.forEach(function (x) { x.d = N.distM(here.lat, here.lon, x.lat, x.lon); });
+    list.sort(function (a, b) { return a.d - b.d; });
+    AI.places = list.slice(0, 5);
+    return { resultaten: AI.places.map(function (x, i) { return { nummer: i + 1, naam: x.name, adres: x.sub, afstand: N.fmtDist(x.d) }; }) };
+  }).catch(function () { return { fout: "zoeken lukte niet (internet?)" }; });
+}
+/* ---- naar een plek rijden ---- */
+function aiGo(d) {
+  if (st.nav) stopNav(true);
+  st.aiAutoStart = d; $("q").value = d.name; $("qclear").hidden = false;
+  chooseDest(d);
+  return { gestart: true, naar: d.name };
+}
+function aiStartRoute(args) {
+  if (args.favoriet) {
+    var f = favs(), fv = args.favoriet === "thuis" ? f.home : args.favoriet === "werk" ? f.work : f.list.filter(function (x) { return x.name.toLowerCase().indexOf(String(args.favoriet).toLowerCase()) >= 0; })[0];
+    if (!fv) return Promise.resolve({ fout: "favoriet '" + args.favoriet + "' is niet opgeslagen" });
+    return Promise.resolve(aiGo(Object.assign({}, fv, { name: args.favoriet === "thuis" ? "Thuis" : args.favoriet === "werk" ? "Werk" : fv.name })));
+  }
+  if (args.nummer && AI.places[args.nummer - 1]) return Promise.resolve(aiGo(AI.places[args.nummer - 1]));
+  if (args.naam) return aiFind({ naam: args.naam }).then(function (r) { return AI.places[0] ? aiGo(AI.places[0]) : { fout: "niets gevonden voor " + args.naam }; });
+  return Promise.resolve({ fout: "geen bestemming opgegeven" });
+}
+function aiAddStop(args) {
+  var p = args.nummer && AI.places[args.nummer - 1];
+  if (!p) return { fout: "zoek eerst een plek" };
+  if (!st.nav || !st.dest) return aiGo(p);
+  st.stops = (st.stops || []).concat([{ lat: p.lat, lon: p.lon, name: p.name }]).slice(0, 3);
+  st.lastReroute = 0; st.rerouting = false; reroute();
+  return { tussenstop: p.name };
+}
+/* ---- instellingen ---- */
+var AI_SET = { geluid: "s-voice", flitsers: "s-flits", verkeer: "s-traffic", snelwegen_vermijden: "s-nomotorway", tol_vermijden: "s-notoll", veerponten_vermijden: "s-noferry",
+  verkeerslichten: "s-signals", smiesh_stem: "s-moesvoice", drukte_vermijden: "s-avoid", drukte_op_kaart: "s-flow", hulpdienstdetector: "s-det" };
+function aiSetting(args) {
+  var n = args.naam, on = !!args.aan;
+  if (n === "nachtmodus") { var b = document.querySelector('#seg-theme [data-v="' + (on ? "dark" : "light") + '"]'); if (b) b.click(); return { nachtmodus: on }; }
+  if (n === "batterijbesparing") { var b2 = document.querySelector('#seg-saver [data-v="' + (on ? "on" : "auto") + '"]'); if (b2) b2.click(); return { batterijbesparing: on }; }
+  var el = $(AI_SET[n]); if (!el) return { fout: "onbekende instelling" };
+  if (el.checked !== on) { el.checked = on; el.dispatchEvent(new Event("change")); }
+  return { instelling: n, aan: on };
+}
+function aiAct(args) {
+  var map2 = { zwaaien: "wave", giechelen: "giggle", hartje: "heart", spelletje: "game", eten: "eat", drinken: "drink", springen: "hop", uitrekken: "stretch" };
+  var a = map2[args.actie]; if (a && moes) setTimeout(function () { moes.play(a, true); }, 300);
+  return { ok: true };
+}
+var AI_TOOLS = [{ functionDeclarations: [
+  { name: "rit_info", description: "Actuele info: tijd, snelheid, maximumsnelheid, straat, en bij navigatie: bestemming, aankomsttijd, resterende tijd/afstand, volgende afslag, flitsers en files/werkzaamheden op de route.", parameters: { type: "object", properties: {} } },
+  { name: "zoek_plek", description: "Zoek plekken in de buurt, onderweg op de route of bij de bestemming. Gebruik 'soort' voor een categorie of 'naam' voor een specifieke plek/adres/stad.",
+    parameters: { type: "object", properties: { soort: { type: "string", enum: Object.keys(AI_CAT) }, naam: { type: "string" }, waar: { type: "string", enum: ["hier", "onderweg", "bestemming"] } } } },
+  { name: "start_route", description: "Start navigatie naar een gevonden plek (nummer uit zoek_plek), een favoriet (thuis/werk/naam) of een naam/adres.",
+    parameters: { type: "object", properties: { nummer: { type: "integer" }, favoriet: { type: "string" }, naam: { type: "string" } } } },
+  { name: "tussenstop", description: "Voeg een gevonden plek (nummer uit zoek_plek) toe als tussenstop op de huidige route.", parameters: { type: "object", properties: { nummer: { type: "integer" } }, required: ["nummer"] } },
+  { name: "stop_route", description: "Stop de huidige navigatie.", parameters: { type: "object", properties: {} } },
+  { name: "instelling", description: "Zet een instelling van de app aan of uit.",
+    parameters: { type: "object", properties: { naam: { type: "string", enum: Object.keys(AI_SET).concat(["nachtmodus", "batterijbesparing"]) }, aan: { type: "boolean" } }, required: ["naam", "aan"] } },
+  { name: "smiesh_actie", description: "Laat Smiesh (jezelf) iets doen op het scherm, passend bij het gesprek.",
+    parameters: { type: "object", properties: { actie: { type: "string", enum: ["zwaaien", "giechelen", "hartje", "spelletje", "eten", "drinken", "springen", "uitrekken"] } }, required: ["actie"] } }
+] }];
+function aiRun(name, args) {
+  args = args || {};
+  try {
+    if (name === "rit_info") return Promise.resolve(tripInfo());
+    if (name === "zoek_plek") return aiFind(args);
+    if (name === "start_route") return aiStartRoute(args);
+    if (name === "tussenstop") return Promise.resolve(aiAddStop(args));
+    if (name === "stop_route") { if (st.nav) stopNav(false); return Promise.resolve({ gestopt: true }); }
+    if (name === "instelling") return Promise.resolve(aiSetting(args));
+    if (name === "smiesh_actie") return Promise.resolve(aiAct(args));
+  } catch (e) { return Promise.resolve({ fout: String(e.message || e) }); }
+  return Promise.resolve({ fout: "onbekende functie" });
+}
+function aiSystem() {
+  return "Je bent Smiesh, een vrolijk paars wezeltje en de assistent in de navigatie-app MoesWeasley Maps. Je zit in een glazen bubbel naast de snelheidsmeter. " +
+    "Je heet Smiesh (niet Moes). Je praat Nederlands, informeel en vrolijk, met af en toe een grapje. " +
+    "Houd antwoorden KORT: maximaal twee korte zinnen, want de bestuurder rijdt en je antwoord wordt voorgelezen. Geen emoji, opsommingen of opmaak. " +
+    "Gebruik altijd de functies voor tijden, afstanden, snelheden, flitsers, files en plekken; verzin die nooit. " +
+    "Bij het zoeken van plekken: noem kort de dichtstbijzijnde (naam en afstand) en vraag of je erheen moet, tenzij de bestuurder al zei dat je moest gaan. " +
+    "Moedig nooit te hard rijden of telefoongebruik tijdens het rijden aan. Ben je iets niet zeker, zeg dat eerlijk. " +
+    "Nu: " + new Date().toLocaleString("nl-NL", { weekday: "long", hour: "2-digit", minute: "2-digit" }) + (st.nav ? ", er is een route actief." : st.speed > 3 ? ", de bestuurder rijdt zonder route." : ".");
+}
+function aiCall(contents) {
+  var models = AI.model ? [AI.model].concat(AI_MODELS.filter(function (m) { return m !== AI.model; })) : AI_MODELS.slice(), i = 0;
+  var body = JSON.stringify({ system_instruction: { parts: [{ text: aiSystem() }] }, contents: contents, tools: AI_TOOLS });
+  function next(lastErr) {
+    if (i >= models.length) return Promise.reject(lastErr || new Error("geen model"));
+    var m = models[i++], ctl = window.AbortController ? new AbortController() : null, t = setTimeout(function () { if (ctl) ctl.abort(); }, 25000);
+    return fetch("https://generativelanguage.googleapis.com/v1beta/models/" + m + ":generateContent", {
+      method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": AI.key }, body: body, signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      clearTimeout(t);
+      if (r.status === 404) return next(new Error("model " + m));
+      if (r.status === 400 || r.status === 401 || r.status === 403) return r.json().catch(function () { return {}; }).then(function (j) {
+        var msg = (j.error && j.error.message) || "";
+        if (/model/i.test(msg) && !/key/i.test(msg)) return next(new Error(msg));
+        var er = new Error(/key|permission|auth/i.test(msg) || r.status !== 400 ? "sleutel" : msg || "verzoek"); er.kind = er.message === "sleutel" ? "key" : "bad"; throw er;
+      });
+      if (r.status === 429) { var e2 = new Error("limiet"); e2.kind = "quota"; throw e2; }
+      if (!r.ok) return next(new Error("HTTP " + r.status));
+      AI.model = m; return r.json();
+    });
+  }
+  return next();
+}
+function aiThink(question) {
+  AI.hist.push({ role: "user", parts: [{ text: question }] });
+  if (AI.hist.length > 16) AI.hist = AI.hist.slice(-16);
+  while (AI.hist.length && (AI.hist[0].role !== "user" || AI.hist[0].parts[0].functionResponse)) AI.hist.shift();
+  var rounds = 0;
+  function step() {
+    return aiCall(AI.hist).then(function (d) {
+      var cand = d.candidates && d.candidates[0], content = cand && cand.content;
+      if (!content || !content.parts) return "Hmm, daar weet ik even niks op.";
+      AI.hist.push(content);
+      var calls = content.parts.filter(function (p) { return p.functionCall; });
+      if (calls.length && rounds++ < 4) {
+        return Promise.all(calls.map(function (p) {
+          return aiRun(p.functionCall.name, p.functionCall.args).then(function (res) {
+            var fr = { name: p.functionCall.name, response: { result: res } }; if (p.functionCall.id) fr.id = p.functionCall.id;
+            return { functionResponse: fr };
+          });
+        })).then(function (parts) { AI.hist.push({ role: "user", parts: parts }); return step(); });
+      }
+      return content.parts.filter(function (p) { return p.text && !p.thought; }).map(function (p) { return p.text; }).join(" ").replace(/[*_#`]/g, "").trim() || "Klaar!";
+    });
+  }
+  return step();
+}
+function aiAsk() {
+  if (AI.busy) { aiStopListen(); return; } /* nog een keer tikken = stoppen */
+  if (!AI.key) { aiSay("Ik heb nog een Gemini-sleutel nodig. Die vul je in bij Instellingen."); return; }
+  var my = ++AI.seq; AI.busy = true; voiceStop();
+  AI.mode = "listen"; updateMoes(); if (moes) moes.say("Ik luister…", 6000); vibrate(25);
+  aiListen().then(function (q) {
+    if (my !== AI.seq) return;
+    q = (q || "").trim();
+    if (!q) { AI.mode = null; updateMoes(); if (moes) moes.say("Ik hoorde niks…", 1600); return; }
+    AI.mode = "think"; updateMoes(); if (moes) moes.say("Even denken…", 12000);
+    return aiThink(q).then(function (answer) { AI.mode = null; updateMoes(); aiSay(answer); });
+  }).catch(function (e) {
+    AI.mode = null; updateMoes();
+    var m = e && e.kind === "key" ? "Mijn Gemini-sleutel werkt niet. Kijk even in Instellingen." : e && e.kind === "quota" ? "Ik heb even te veel vragen gehad. Probeer het zo nog eens." :
+      /microfoon/.test(String(e && e.message)) ? "Ik mag de microfoon niet gebruiken. Geef toestemming in Android." : /spraakherkenning/.test(String(e && e.message)) ? "Spraakherkenning werkt niet op dit toestel." : "Oei, dat lukte niet. Is er internet?";
+    aiSay(m);
+  }).then(function () { if (my === AI.seq) { AI.busy = false; if (AI.mode) { AI.mode = null; updateMoes(); } } });
 }
 
 /* ---------- Firebase (gedeelde meldingen, zelfde opslag als sprintje) ---------- */
@@ -1826,6 +1983,15 @@ function wire() {
     setFlowLayer(); setTrafInfo();
     var box = st.routes.length ? routesBox(st.routes) : (map ? (function () { var b = map.getBounds(); return { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }; })() : null);
     fetchLive(box, true).then(function () { setTrafInfo(); toast(live.ok.tomtom === false || live.ok.here === false ? "Een sleutel werkt niet. Controleer hem." : "Opgeslagen."); });
+  };
+  $("s-ai").checked = S.ai; $("s-ai").onchange = function () { S.ai = this.checked; saveS(); };
+  $("k-gemini").value = AI.key;
+  $("savegemini").onclick = function () { AI.key = $("k-gemini").value.trim(); store("key_gemini", AI.key); AI.model = null; toast(AI.key ? "Opgeslagen. Tik op Smiesh en vraag iets!" : "Sleutel gewist."); };
+  $("testgemini").onclick = function () {
+    AI.key = $("k-gemini").value.trim(); store("key_gemini", AI.key); if (!AI.key) { toast("Vul eerst een sleutel in."); return; }
+    toast("Even testen…"); AI.hist = [];
+    aiThink("Zeg in één korte zin hallo en wie je bent.").then(function (a) { toast("Werkt! (" + AI.model + ")"); aiSay(a); AI.hist = []; })
+      .catch(function (e) { toast(e && e.kind === "key" ? "Sleutel werkt niet." : e && e.kind === "quota" ? "Limiet bereikt, probeer later." : "Geen verbinding met Gemini.", true, 5000); });
   };
   $("s-moes").checked = S.moes; $("s-moes").onchange = function () { S.moes = this.checked; saveS(); updateMoes(); };
   function seg(id, key, after) {

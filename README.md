@@ -108,3 +108,14 @@ De limiet staat altijd in beeld, ook zonder route en zonder sleutel. Hij komt va
 ## Verkeerslichten
 
 Stoplichten komen uit OpenStreetMap (gratis, via Overpass) en verschijnen als je inzoomt (zoom 14+). Ze worden per vak van ongeveer 2 km opgehaald en lampen op hetzelfde kruispunt worden samengevoegd. Aan/uit in Instellingen.
+
+## Smiesh met AI (Google Gemini)
+
+Tik op Smiesh en stel een vraag (spraakherkenning van de telefoon). Smiesh luistert (pootje bij het oor), denkt na (pootje onder de kin) en antwoordt hardop. Hij kan:
+- vragen over je rit beantwoorden (aankomsttijd, resterende tijd, maximumsnelheid, flitsers en files op de route);
+- plekken zoeken in de buurt, onderweg of bij je bestemming (tankstation, laadpaal, parkeren, eten, koffie, supermarkt, toilet, …) en er een route naartoe starten of hem als tussenstop toevoegen;
+- naar huis of werk navigeren, de route stoppen;
+- instellingen aan/uit zetten (geluid, nachtmodus, snelwegen/tol vermijden, verkeerslichten, …);
+- gewoon kletsen.
+
+Vul je gratis Gemini-sleutel in bij Instellingen (aistudio.google.com) en tik op Testen. De sleutel blijft op je telefoon en gaat alleen naar Google. Zonder sleutel werkt Smiesh zoals eerst. Slaapt hij, dan maakt een tik hem wakker en luistert hij meteen.

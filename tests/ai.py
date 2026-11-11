@@ -1,0 +1,58 @@
+"""Smiesh met AI: Gemini (nep) + spraak (nep)."""
+from playwright.sync_api import sync_playwright
+from harness import App, CTL, GEM
+F=[]
+def check(ok,w):
+    print(('  ok   ' if ok else '  FOUT ')+w)
+    if not ok: F.append(w)
+with sync_playwright() as p:
+    a=App(p); pg=a.pg; pg.wait_for_timeout(1500)
+    def ask(q, wait=2500):
+        a.ev("window.__q.push(%r)"%q); states=set()
+        pg.click('#moes')
+        for i in range(int(wait/100)):
+            pg.wait_for_timeout(100); states.add(pg.get_attribute('#moes','data-s'))
+        return states, (pg.inner_text('.moes-say') if a.vis('.moes-say') else ''), a.ev("window.__said.slice(-1)[0]||''")
+    print('1. zonder sleutel')
+    st_,b,s=ask('hallo',1200); check('listen' not in st_,'zonder sleutel: gewoon giechelen zoals vroeger ('+b+')'); a.ev("window.__q=[]")
+    print('2. sleutel invullen en testen')
+    pg.click('#opensettings'); pg.fill('#k-gemini','AIzaTEST'); pg.click('#testgemini'); pg.wait_for_timeout(1200)
+    check('Werkt' in a.toast() and 'gemini-3.6-flash' in a.toast(),'test werkt, valt terug op beschikbaar model: '+a.toast())
+    check(GEM['log'][-1]['key']=='AIzaTEST','sleutel in header, niet in url')
+    pg.click('#closesettings'); pg.wait_for_timeout(2500)
+    print('3. tankstation zoeken')
+    st_,b,s=ask('zoek een tankstation',3500)
+    print('   standen:',st_,'| ballon:',b,'| stem:',s)
+    check('listen' in st_,'luistert (pootje bij het oor)')
+    check('Shell Damrak' in b,'noemt dichtstbijzijnde tankstation')
+    check('Shell' in s,'zegt het hardop')
+    print('4. ga erheen')
+    st_,b,s=ask('ga erheen',3500); pg.wait_for_timeout(1500)
+    check(a.ev("window.__mn.st.nav") and 'Shell' in a.ev("window.__mn.st.dest.name"),'route gestart naar het tankstation')
+    sent=[c for c in GEM['log'][-1]['body']['contents'] if c['role']=='model' and any('functionCall' in x for x in c['parts'])]
+    check(all(any(x.get('thoughtSignature') for x in c['parts']) for c in sent),'gedachte-handtekening wordt teruggestuurd')
+    check('Smiesh' in GEM['log'][-1]['body']['system_instruction']['parts'][0]['text'],'weet dat hij Smiesh heet')
+    print('5. hoe laat ben ik er (tijdens navigatie)')
+    st_,b,s=ask('hoe laat ben ik er',3000); print('   ',b); check('Je bent er om' in b,'aankomsttijd uit de app')
+    print('6. geluid uit')
+    st_,b,s=ask('zet het geluid uit',3000); check(not a.ev("document.getElementById('s-voice').checked"),'geluid staat uit (instelling)')
+    check(a.ev("window.__said.slice(-1)[0]").startswith('Geluid'),'antwoord toch hardop (gevraagd)')
+    print('7. stop de route')
+    st_,b,s=ask('stop de route',3000); pg.wait_for_timeout(500); check(not a.ev("window.__mn.st.nav"),'route gestopt')
+    print('8. kletsen, opmaak eruit')
+    st_,b,s=ask('vertel iets leuks',2500); check('**' not in b and 'Smiesh' in b,'geen sterretjes: '+b)
+    print('9. verkeerde sleutel')
+    GEM['status']=403; st_,b,s=ask('hallo',2500); GEM['status']=None
+    check('sleutel' in b.lower(),'zegt dat de sleutel niet werkt: '+b)
+    print('9b. slapend aantikken = wakker en meteen luisteren')
+    a.ev("window.__mn.moes()._set=1")
+    pg.wait_for_timeout(100)
+    a.ev("window.__mn.st.speed=0"); pg.wait_for_timeout(33000)
+    print('   voor tik:',a.ev("window.__mn.moes().state"))
+    st_,b,s=ask('hoe laat',4500); check('listen' in st_ and 'km per uur' in b,'wakker en meteen gevraagd: '+b)
+    print('10. niets gezegd')
+    st_,b,s=ask('',1500); check('niks' in b,'hoorde niks: '+b)
+    check(a.ev("window.__mn.moes().state")=='idle','daarna weer gewoon')
+    print('ERR',a.errs); check(not a.errs,'geen fouten')
+    a.close()
+print('BEVINDINGEN',F)

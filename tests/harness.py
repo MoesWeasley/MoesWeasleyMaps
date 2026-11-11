@@ -19,6 +19,32 @@ CTL = {"route": "ok", "search": "ok", "calls": []}
 PLACES = [{"geometry": {"coordinates": D}, "properties": {"name": "Centraal Station", "city": "Amsterdam", "countrycode": "NL"}},
           {"geometry": {"coordinates": C}, "properties": {"name": "Centrale Bibliotheek", "city": "Amsterdam", "countrycode": "NL"}}]
 
+GEM = {"log": [], "status": None}
+def gemini(r):
+    import json as _j
+    u = r.request.url; model = u.split('/models/')[1].split(':')[0]
+    body = _j.loads(r.request.post_data or '{}'); GEM["log"].append({"model": model, "body": body, "key": r.request.headers.get('x-goog-api-key')})
+    if GEM["status"]: return r.fulfill(status=GEM["status"], json={"error": {"message": "API key not valid"}})
+    if model == "gemini-flash-latest": return r.fulfill(status=404, json={"error": {"message": "not found"}})
+    last = body["contents"][-1]; p0 = last["parts"][0]
+    def call(name, args): return r.fulfill(json={"candidates": [{"content": {"role": "model", "parts": [{"functionCall": {"name": name, "args": args}, "thoughtSignature": "SIG-" + name}]}}]})
+    def text(t): return r.fulfill(json={"candidates": [{"content": {"role": "model", "parts": [{"text": t}]}}]})
+    if "functionResponse" in p0:
+        fr = p0["functionResponse"]; res = fr["response"]["result"]; n = fr["name"]
+        if n == "rit_info": return text("Je bent er om %s, nog %s." % (res.get("aankomst", "?"), res.get("resterend", "?")) if res.get("navigatie") else "Je rijdt nu %s km per uur." % res["snelheid_kmu"])
+        if n == "zoek_plek": rr = res.get("resultaten") or [{}]; return text("Dichtstbij is %s op %s. Zal ik erheen gaan?" % (rr[0].get("naam"), rr[0].get("afstand")))
+        if n == "start_route": return text("Op weg naar %s!" % res.get("naar"))
+        if n == "instelling": return text("Geluid staat nu uit.")
+        if n == "stop_route": return text("Route gestopt.")
+        return text("Klaar.")
+    q = p0.get("text", "").lower()
+    if "hoe laat" in q: return call("rit_info", {})
+    if "tankstation" in q: return call("zoek_plek", {"soort": "tankstation", "waar": "hier"})
+    if "erheen" in q: return call("start_route", {"nummer": 1})
+    if "geluid uit" in q: return call("instelling", {"naam": "geluid", "aan": False})
+    if "stop" in q: return call("stop_route", {})
+    return text("Hoi! Ik ben **Smiesh**, je vrolijke wezeltje.")
+
 def handler(r):
     u = r.request.url
     if u.startswith('https://app/'):
@@ -45,10 +71,15 @@ def handler(r):
         q = re.search(r'q=([^&]*)', u).group(1).lower()
         if 'nominatim' in u: return r.fulfill(json=[])
         return r.fulfill(json={"features": [p for p in PLACES if q[:3] in p["properties"]["name"].lower()]})
+    if 'generativelanguage.googleapis.com' in u:
+        return gemini(r)
     if 'interpreter' in u:
         CTL.setdefault("overpass", 0); CTL["overpass"] += 1
         if CTL.get("osm") == "fail": return r.abort()
         from urllib.parse import unquote
+        if 'amenity=fuel' in unquote(u):
+            return r.fulfill(json={"elements": [{"type": "node", "id": 9, "lat": 52.372, "lon": 4.905, "tags": {"amenity": "fuel", "name": "Shell Damrak", "addr:street": "Damrak"}},
+                                                {"type": "node", "id": 8, "lat": 52.39, "lon": 4.93, "tags": {"amenity": "fuel", "brand": "Esso"}}]})
         if 'traffic_signals' in unquote(u):
             CTL.setdefault("sigq", 0); CTL["sigq"] += 1
             return r.fulfill(json={"elements": [{"type": "node", "id": 1, "lat": B[1], "lon": B[0]}, {"type": "node", "id": 2, "lat": B[1] + 0.00005, "lon": B[0]}, {"type": "node", "id": 3, "lat": C[1], "lon": C[0]}]})
@@ -72,6 +103,7 @@ class App:
         self.pg.on('console', lambda m: m.type == 'error' and 'Failed to load resource' not in m.text and self.errs.append('console: ' + m.text))
         self.ctx.route('**/*', handler)
         # langzame diensten nabootsen: window.__slow = /regex/
+        self.pg.add_init_script("""window.__q=[];var __SR=function(){var s=this;this.start=function(){setTimeout(function(){var t=window.__q.shift()||'';if(t)s.onresult({results:[[{transcript:t}]]});s.onend()},400)};this.abort=function(){}};Object.defineProperty(window,'SpeechRecognition',{value:__SR,configurable:true,writable:true});Object.defineProperty(window,'webkitSpeechRecognition',{value:__SR,configurable:true,writable:true});""")
         self.pg.add_init_script("""window.__said=[];if(window.speechSynthesis){speechSynthesis.speak=function(u){window.__said.push(u.text)}}""")
         self.pg.add_init_script("""(function(){var f=window.fetch;window.fetch=function(u,o){var s=window.__slow;if(s&&s.test(String(u)))return new Promise(function(r){setTimeout(r,window.__slowMs||3000)}).then(function(){return f(u,o)});return f(u,o)}})();""" + init)
         self.pg.goto('https://app/index.html'); self.pg.wait_for_timeout(1200)

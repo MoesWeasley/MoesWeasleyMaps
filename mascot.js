@@ -91,6 +91,8 @@
       '<g class="mx x-alarm"><text x="80" y="16" font-size="16" font-weight="900" fill="#ff3d6e" font-family="system-ui" stroke="#fff" stroke-width="2.6" paint-order="stroke">!!</text></g>' +
       '<g class="mx x-sparks"><path d="M10 26l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#ffd166"/><path d="M88 10l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" fill="#ff8fd0"/><circle cx="90" cy="40" r="2.3" fill="#7ee6a8"/><circle cx="8" cy="52" r="1.8" fill="#8fd0ff"/></g>' +
       '<g class="mx x-zz"><text class="zz" x="76" y="18" font-size="13" font-weight="800" fill="#7b5cff" font-family="system-ui">z</text><text class="zz z2" x="85" y="9" font-size="10" font-weight="800" fill="#7b5cff" font-family="system-ui">z</text></g>' +
+      '<g class="mx x-listen" fill="none" stroke="#2f9bff" stroke-width="2.4" stroke-linecap="round"><path class="w1" d="M86 30q4 6 0 12"/><path class="w2" d="M91 26q6 10 0 20"/></g>' +
+      '<g class="mx x-think" fill="#c24dff"><circle class="d1" cx="76" cy="12" r="2.6"/><circle class="d2" cx="84" cy="8" r="2.6"/><circle class="d3" cx="92" cy="4" r="2.6"/></g>' +
       '<g class="mx x-heart"><path d="M84 22c-2-4-8-3-8 1c0 4 8 8 8 8s8-4 8-8c0-4-6-5-8-1z" fill="#ff5c9a" stroke="#fff" stroke-width="1.2"/></g>' +
     '</g></g></svg>';
 
@@ -101,7 +103,9 @@
     fast:    { L: 150, R: -150, head: 4, lean: 0, y: -5, look: [0, 0] },
     worried: { L: 158, R: -158, head: 6, lean: 0, y: 0, look: [1.4, 0.6] },
     happy:   { L: 160, R: -160, head: 0, lean: 0, y: -2, look: [0, 0] },
-    sleepy:  { L: -8, R: 8, head: 13, lean: 3, y: 2, look: [0, 0] }
+    sleepy:  { L: -8, R: 8, head: 13, lean: 3, y: 2, look: [0, 0] },
+    listen:  { L: 14, R: -168, head: 9, lean: 2.5, y: -1, look: [1.3, -0.6] },  /* pootje bij het oor */
+    think:   { L: -150, R: -16, head: -7, lean: -1.5, y: 0, look: [-1.1, -1.5] } /* pootje onder de kin, omhoog kijken */
   };
   /* kleine acties die hij uit zichzelf of na een tik doet: tijdelijke houding + gezichtje + duur */
   var ACTS = {

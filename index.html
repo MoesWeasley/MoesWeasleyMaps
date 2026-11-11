@@ -245,6 +245,16 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 #moes.a-hop .m-live{animation:mHop .45s ease-in-out 3}
 #moes .px{opacity:0;transition:opacity .25s ease}
 #moes[data-s=yum] .f-happy,#moes[data-s=yum] .m-blush{opacity:1}
+#moes[data-s=listen] .f-idle,#moes[data-s=listen] .m-point,#moes[data-s=think] .f-idle,#moes[data-s=think] .m-sleepy{opacity:1}
+#moes[data-s=listen]{box-shadow:0 0 0 3px rgba(47,155,255,.6),var(--g-shadow);animation:mListen 1.1s ease-in-out infinite}
+@keyframes mListen{50%{box-shadow:0 0 0 7px rgba(47,155,255,.25),var(--g-shadow)}}
+#moes[data-s=listen] .x-listen,#moes[data-s=think] .x-think{opacity:1}
+#moes .x-listen .w1{animation:mWave1 1s ease-in-out infinite}#moes .x-listen .w2{animation:mWave1 1s ease-in-out .25s infinite}
+@keyframes mWave1{0%,100%{opacity:.25}50%{opacity:1}}
+#moes .x-think circle{animation:mDots 1.2s ease-in-out infinite}#moes .x-think .d2{animation-delay:.2s}#moes .x-think .d3{animation-delay:.4s}
+@keyframes mDots{0%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+#moes[data-s=think]{box-shadow:0 0 0 3px rgba(194,77,255,.55),var(--g-shadow)}
+#moes[data-s=think] .m-live{animation:mBreath 1.2s ease-in-out infinite}
 #moes[data-s=yawn] .f-sleepy,#moes[data-s=yawn] .m-talk,#moes[data-s=rest] .f-sleepy,#moes[data-s=rest] .m-sleepy{opacity:1}
 #moes.a-eat .p-burger,#moes.a-drink .p-drink,#moes.a-game .p-game{opacity:1}
 #moes.a-eat .mm,#moes.a-drink .mm{opacity:0!important}
@@ -523,6 +533,10 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
   <div class="set"><span>Detector<small>Gevoeligheid: hoger = eerder melden, maar vaker vals alarm.</small></span><span><button class="small" id="detpair">Koppelen</button> <button class="small" id="dettest">Testen</button></span></div>
   <div class="set"><span>Gevoeligheid</span><span class="seg" id="seg-det"><button data-v="16">Laag</button><button data-v="12">Normaal</button><button data-v="9">Hoog</button><button data-v="6">Max</button></span></div>
   <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
+  <label class="set"><span>Smiesh met AI<small id="aiinfo">Tik op Smiesh en vraag iets: hoe laat ben je er, zoek een tankstation, zet het geluid uit… Werkt met een gratis Google Gemini-sleutel (aistudio.google.com).</small></span><input type="checkbox" class="sw" id="s-ai"></label>
+  <div class="set" style="display:block"><span>Gemini-sleutel</span>
+    <input class="key" id="k-gemini" placeholder="Google Gemini API-sleutel (AIza…)" autocomplete="off" spellcheck="false">
+    <button class="small" id="savegemini" style="margin-top:8px">Opslaan</button> <button class="small" id="testgemini" style="margin-top:8px">Testen</button></div>
   <label class="set"><span>Smiesh spreekt de aanwijzingen<small>De stem klinkt dan als Smiesh (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
   <div class="set" style="display:block"><span>Route-opties<small id="avoidinfo">Vermijden werkt met een Mapbox-sleutel.</small></span>
     <label class="opt"><input type="checkbox" class="sw sm" id="s-notoll"> Tol vermijden</label>
