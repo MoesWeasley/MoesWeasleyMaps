@@ -251,17 +251,105 @@ function addLayers() {
 }
 /* gebouwen: hoe hoger, hoe blauwer (roze → paars → blauw) */
 var BUILD_COL = ["interpolate", ["linear"], ["coalesce", ["get", "render_height"], ["get", "h"], 8], 0, "#ffc4e6", 15, "#e0b8ff", 35, "#a9a4ff", 70, "#6fb6ff"];
+/* ---------- levende kaart: golvend water, wiegend gras en bewegende bomen ----------
+   Patronen worden in de app zelf getekend (geen downloads) en ~15 keer per seconde ververst. */
+var LIVE = { ready: false, last: 0, size: 192, sprites: null };
+function liveRng(seed) { return function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }; }
+function liveSprites() {
+  var r = liveRng(42), S2 = LIVE.size, sp = { spark: [], tufts: [], parkTrees: [], woodTrees: [], patches: [] };
+  for (var i = 0; i < 14; i++) sp.spark.push({ x: 10 + r() * (S2 - 20), y: 10 + r() * (S2 - 20), p: r() * 6.3 });
+  for (i = 0; i < 26; i++) sp.tufts.push({ x: 8 + r() * (S2 - 16), y: 12 + r() * (S2 - 20), p: r() * 6.3 });
+  for (i = 0; i < 6; i++) sp.patches.push({ x: 20 + r() * (S2 - 40), y: 20 + r() * (S2 - 40), r: 14 + r() * 16 });
+  function trees(n, list, rmin, rmax) {
+    var tries = 0;
+    while (list.length < n && tries++ < 500) {
+      var t = { r: rmin + r() * (rmax - rmin), p: r() * 6.3 };
+      t.x = t.r + 6 + r() * (S2 - 2 * t.r - 12); t.y = t.r + 6 + r() * (S2 - 2 * t.r - 12);
+      if (list.every(function (o) { return Math.hypot(o.x - t.x, o.y - t.y) > o.r + t.r + 3; })) list.push(t);
+    }
+  }
+  trees(3, sp.parkTrees, 11, 15); trees(11, sp.woodTrees, 10, 16);
+  return sp;
+}
+function drawWater(ctx, t) {
+  var S2 = LIVE.size, sp = LIVE.sprites;
+  ctx.fillStyle = "#43bbfd"; ctx.fillRect(0, 0, S2, S2);
+  for (var row = 0; row < 4; row++) {
+    var y0 = row * 48 + 20;
+    ctx.beginPath();
+    for (var x = 0; x <= S2; x += 4) { var y = y0 + 5 * Math.sin(x / S2 * Math.PI * 4 + t * 1.5 + row * 1.3); if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.strokeStyle = "rgba(255,255,255,0.32)"; ctx.lineWidth = 3; ctx.stroke();
+    ctx.beginPath();
+    for (x = 0; x <= S2; x += 4) { var y2 = y0 + 16 + 3 * Math.sin(x / S2 * Math.PI * 6 - t * 1.1 + row); if (x === 0) ctx.moveTo(x, y2); else ctx.lineTo(x, y2); }
+    ctx.strokeStyle = "rgba(10,110,220,0.22)"; ctx.lineWidth = 2; ctx.stroke();
+  }
+  sp.spark.forEach(function (s) {
+    var a = Math.sin(t * 1.8 + s.p);
+    if (a > 0.55) { ctx.fillStyle = "rgba(255,255,255," + ((a - 0.55) * 2).toFixed(2) + ")"; ctx.beginPath(); ctx.arc(s.x, s.y, 2.4, 0, 7); ctx.fill(); }
+  });
+}
+function drawGreen(ctx, t, wood) {
+  var S2 = LIVE.size, sp = LIVE.sprites;
+  ctx.fillStyle = wood ? "#4fd486" : "#7ee6a8"; ctx.fillRect(0, 0, S2, S2);
+  sp.patches.forEach(function (q) { ctx.fillStyle = wood ? "rgba(30,150,80,.18)" : "rgba(60,190,110,.18)"; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, 7); ctx.fill(); });
+  /* wiegend gras */
+  ctx.lineCap = "round"; ctx.lineWidth = 2.3; ctx.strokeStyle = wood ? "#249a54" : "#2fb069";
+  sp.tufts.forEach(function (g) {
+    var sw = 2.2 * Math.sin(t * 2.1 + g.p + g.x * 0.04);
+    for (var k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(g.x + k * 2.2, g.y); ctx.quadraticCurveTo(g.x + k * 3 + sw * 0.4, g.y - 5, g.x + k * 3.6 + sw * 1.3, g.y - 11 + Math.abs(k) * 2); ctx.stroke(); }
+  });
+  /* bomen: schaduw, kruin die zachtjes meebeweegt, lichtvlek */
+  (wood ? sp.woodTrees : sp.parkTrees).forEach(function (tr) {
+    var dx = 1.4 * Math.sin(t * 1.2 + tr.p), dy = 0.8 * Math.cos(t * 1.0 + tr.p);
+    ctx.fillStyle = "rgba(0,70,35,.22)"; ctx.beginPath(); ctx.ellipse(tr.x + 3, tr.y + 4, tr.r, tr.r * 0.85, 0, 0, 7); ctx.fill();
+    var g = ctx.createRadialGradient(tr.x + dx - tr.r * 0.3, tr.y + dy - tr.r * 0.35, 1, tr.x + dx, tr.y + dy, tr.r);
+    g.addColorStop(0, "#8ff0b4"); g.addColorStop(0.55, "#3cc777"); g.addColorStop(1, "#1f9a55");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tr.x + dx, tr.y + dy, tr.r, 0, 7); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.beginPath(); ctx.arc(tr.x + dx - tr.r * 0.35, tr.y + dy - tr.r * 0.4, tr.r * 0.28, 0, 7); ctx.fill();
+  });
+}
+function liveImage(draw, t, a) {
+  var c = LIVE.cv || (LIVE.cv = document.createElement("canvas")); c.width = c.height = LIVE.size;
+  var ctx = c.getContext("2d"); ctx.clearRect(0, 0, LIVE.size, LIVE.size); draw(ctx, t, a);
+  return ctx.getImageData(0, 0, LIVE.size, LIVE.size);
+}
+function liveSetup() {
+  if (LIVE.ready) return true;
+  try {
+    LIVE.sprites = liveSprites();
+    map.addImage("mw-water", liveImage(drawWater, 0), { pixelRatio: 2 });
+    map.addImage("mw-park", liveImage(drawGreen, 0, false), { pixelRatio: 2 });
+    map.addImage("mw-wood", liveImage(drawGreen, 0, true), { pixelRatio: 2 });
+    LIVE.ready = true; requestAnimationFrame(liveTick);
+  } catch (e) { LIVE.ready = false; }
+  return LIVE.ready;
+}
+function liveTick(now) {
+  if (!LIVE.ready) return;
+  if (now - LIVE.last > 66 && !document.hidden && mapReady && map.getZoom() >= 11) {
+    LIVE.last = now; var t = now / 1000;
+    try {
+      map.updateImage("mw-water", liveImage(drawWater, t));
+      map.updateImage("mw-park", liveImage(drawGreen, t, false));
+      map.updateImage("mw-wood", liveImage(drawGreen, t, true));
+    } catch (e) {}
+  }
+  requestAnimationFrame(liveTick);
+}
+
 /* kaart in de kleuren van de app: zachte pastels, 3D-gebouwen en een lucht aan de horizon */
 function styleMap() {
-  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false;
+  var layers = (map.getStyle() && map.getStyle().layers) || [], has3d = false, live = liveSetup();
   function paint(id, k, v) { try { map.setPaintProperty(id, k, v); } catch (e) {} }
+  function pattern(id, img) { if (live) { paint(id, "fill-pattern", img); paint(id, "fill-opacity", 0.95); } }
   layers.forEach(function (l) {
     var id = l.id.toLowerCase(), t = l.type;
     if (t === "background") paint(l.id, "background-color", "#efe8ff");
-    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", "#49bfff"); paint(l.id, "fill-opacity", 0.9); }
+    else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", "#49bfff"); paint(l.id, "fill-opacity", 0.9); pattern(l.id, "mw-water"); }
     else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#49bfff");
-    else if (t === "fill" && /wood|forest/.test(id)) paint(l.id, "fill-color", "#52d98a");
-    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden|pitch/.test(id)) paint(l.id, "fill-color", "#7ee6a8");
+    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", "#52d98a"); pattern(l.id, "mw-wood"); }
+    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", "#7ee6a8"); pattern(l.id, "mw-park"); }
+    else if (t === "fill" && /pitch/.test(id)) paint(l.id, "fill-color", "#7ee6a8");
     else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", BUILD_COL); paint(l.id, "fill-extrusion-opacity", 0.88); }
     else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#f1d4ff");
     else if (t === "fill" && /commercial|retail/.test(id)) paint(l.id, "fill-color", "#ffe0c7");
