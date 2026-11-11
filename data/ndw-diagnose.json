@@ -1,0 +1,139 @@
+{
+ "updated": 1794394940,
+ "bronnen": {
+  "veiligheidsgerelateerde_informatie_srti": {
+   "records": 204,
+   "met_locatie": 204,
+   "types": {
+    "VehicleObstruction": 172,
+    "GeneralObstruction": 21,
+    "Accident": 11
+   },
+   "bytes": 562904,
+   "met_locatie_per_type": {
+    "VehicleObstruction": 172,
+    "GeneralObstruction": 21,
+    "Accident": 11
+   }
+  },
+  "actueel_beeld": {
+   "records": 1323,
+   "met_locatie": 1321,
+   "types": {
+    "VehicleObstruction": 172,
+    "RoadOrCarriagewayOrLaneManagement": 967,
+    "SpeedManagement": 94,
+    "ReroutingManagement": 39,
+    "GeneralNetworkManagement": 18,
+    "Accident": 11,
+    "GeneralObstruction": 21,
+    "AbnormalTraffic": 1
+   },
+   "bytes": 4014560,
+   "met_locatie_per_type": {
+    "VehicleObstruction": 172,
+    "RoadOrCarriagewayOrLaneManagement": 965,
+    "SpeedManagement": 94,
+    "ReroutingManagement": 39,
+    "GeneralNetworkManagement": 18,
+    "Accident": 11,
+    "GeneralObstruction": 21,
+    "AbnormalTraffic": 1
+   },
+   "voorbeeld_zonder_locatie": {
+    "RoadOrCarriagewayOrLaneManagement": [
+     "situationRecord",
+     "situationRecordCreationReference",
+     "situationRecordCreationTime",
+     "situationRecordVersionTime",
+     "probabilityOfOccurrence",
+     "source",
+     "sourceName",
+     "values",
+     "value",
+     "validity",
+     "validityStatus",
+     "validityTimeSpecification",
+     "overallStartTime",
+     "overallEndTime",
+     "impact",
+     "numberOfLanesRestricted",
+     "numberOfOperationalLanes",
+     "cause",
+     "causeType",
+     "locationReference",
+     "supplementaryPositionalDescription",
+     "carriageway",
+     "alertCPoint",
+     "alertCLocationCountryCode",
+     "alertCLocationTableNumber",
+     "alertCLocationTableVersion",
+     "alertCDirection",
+     "alertCDirectionCoded",
+     "alertCAffectedDirection",
+     "alertCMethod2PrimaryPointLocation",
+     "alertCLocation",
+     "specificLocation",
+     "operatorActionStatus",
+     "complianceOption",
+     "roadOrCarriagewayOrLaneManagementType"
+    ]
+   }
+  },
+  "tijdelijke_verkeersmaatregelen_afsluitingen": {
+   "records": 790,
+   "met_locatie": 788,
+   "types": {
+    "RoadOrCarriagewayOrLaneManagement": 733,
+    "GeneralNetworkManagement": 18,
+    "ReroutingManagement": 39
+   },
+   "bytes": 2189794,
+   "met_locatie_per_type": {
+    "RoadOrCarriagewayOrLaneManagement": 731,
+    "GeneralNetworkManagement": 18,
+    "ReroutingManagement": 39
+   },
+   "voorbeeld_zonder_locatie": {
+    "RoadOrCarriagewayOrLaneManagement": [
+     "situationRecord",
+     "situationRecordCreationReference",
+     "situationRecordCreationTime",
+     "situationRecordVersionTime",
+     "probabilityOfOccurrence",
+     "source",
+     "sourceName",
+     "values",
+     "value",
+     "validity",
+     "validityStatus",
+     "validityTimeSpecification",
+     "overallStartTime",
+     "overallEndTime",
+     "impact",
+     "numberOfLanesRestricted",
+     "numberOfOperationalLanes",
+     "cause",
+     "causeType",
+     "locationReference",
+     "supplementaryPositionalDescription",
+     "carriageway",
+     "alertCPoint",
+     "alertCLocationCountryCode",
+     "alertCLocationTableNumber",
+     "alertCLocationTableVersion",
+     "alertCDirection",
+     "alertCDirectionCoded",
+     "alertCAffectedDirection",
+     "alertCMethod2PrimaryPointLocation",
+     "alertCLocation",
+     "specificLocation",
+     "operatorActionStatus",
+     "complianceOption",
+     "roadOrCarriagewayOrLaneManagementType"
+    ]
+   }
+  }
+ },
+ "fouten": []
+}
