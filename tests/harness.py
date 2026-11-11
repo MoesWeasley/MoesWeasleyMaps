@@ -45,6 +45,13 @@ def handler(r):
         q = re.search(r'q=([^&]*)', u).group(1).lower()
         if 'nominatim' in u: return r.fulfill(json=[])
         return r.fulfill(json={"features": [p for p in PLACES if q[:3] in p["properties"]["name"].lower()]})
+    if 'interpreter' in u:
+        CTL.setdefault("overpass", 0); CTL["overpass"] += 1
+        if CTL.get("osm") == "fail": return r.abort()
+        W = lambda tags, pts: {"type": "way", "tags": tags, "geometry": [{"lat": p[1], "lon": p[0]} for p in pts]}
+        return r.fulfill(json={"elements": [W({"highway": "secondary", "name": "Damrak", "maxspeed": "50"}, [A, [4.9, 52.3745], B]),
+            W({"highway": "residential", "name": "Prins Hendrikkade", "maxspeed": "30"}, [B, C]),
+            W({"highway": "tertiary", "maxspeed": "NL:urban", "junction": "roundabout"}, [C, D, [4.918, 52.379]])]})
     if 'flitsers.json' in u: return r.fulfill(json={"updated": 1794370277, "cams": [{"id": "x1", "lat": 52.3791, "lon": 4.9029, "type": "vast", "max": 50}]})
     if 'verkeer.json' in u: return r.fulfill(json={"updated": 1794338184, "items": []})
     return r.fulfill(status=404, body='')

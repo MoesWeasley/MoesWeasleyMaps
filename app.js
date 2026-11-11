@@ -568,6 +568,7 @@ function onPos(p, simulated) {
   st.speed = Math.max(0, p.speed || 0);
   if (p.heading != null && !isNaN(p.heading) && st.speed > 1.5) st.heading = p.heading;
   store("lastpos", st.pos);
+  osmLimit();
   $("spd").textContent = Math.round(st.speed * 3.6);
 
   /* De pijl staat ALTIJD op een weg:
@@ -1318,7 +1319,8 @@ function showAlert(kind, title, text, icon, pulse) {
 function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; alertFor = null; st.camMax = null; updateLimit(); }
 /* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
 function updateLimit() {
-  var lim = st.camMax || (st.nav || st.drive || (useMapboxApi() && st.speed > 4) ? st.roadLimit : null), kmh = st.speed * 3.6;
+  /* volgorde: flitser in de buurt > route (Mapbox) > Mapbox vooruitkijken > OpenStreetMap-weg waar je nu rijdt */
+  var lim = st.camMax || st.roadLimit || st.osmLimit || null, kmh = st.speed * 3.6;
   $("limit").hidden = !lim; $("limit").textContent = lim || "";
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
@@ -1376,6 +1378,36 @@ function driveLimit() {
   }).catch(function () {}).then(function () { limitReq.busy = false; });
 }
 setInterval(driveLimit, 2000);
+
+/* ---------- snelheidslimiet uit OpenStreetMap (gratis, altijd): wegen in de buurt ophalen en de weg onder je zoeken ---------- */
+var osm = { ways: [], at: null, t: 0, busy: false, fail: 0, nextTry: 0 };
+var OVERPASS = CFG.overpass || ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+function osmFetch(lat, lon) {
+  osm.busy = true;
+  var q = '[out:json][timeout:15];way(around:700,' + lat.toFixed(5) + "," + lon.toFixed(5) + ')[highway~"^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|service|road)(_link)?$"];out tags geom;';
+  return firstOk(OVERPASS.map(function (u) { return u + "?data=" + encodeURIComponent(q); }), 20000).then(function (d) {
+    osm.ways = (d.elements || []).filter(function (e) { return e.geometry && e.geometry.length > 1; }).map(function (e) {
+      return { tags: e.tags || {}, g: e.geometry.map(function (p) { return [p.lon, p.lat]; }) };
+    });
+    osm.at = { lat: lat, lon: lon }; osm.t = Date.now(); osm.fail = 0;
+    store("osmways", { ways: osm.ways, at: osm.at, t: osm.t });
+  }).catch(function () { osm.fail++; osm.nextTry = Date.now() + Math.min(120000, 10000 * osm.fail); })
+    .then(function () { osm.busy = false; osmLimit(); updateLimit(); });
+}
+function osmLimit() {
+  if (!st.pos) return;
+  var p = st.pos, now = Date.now();
+  var far = !osm.at || N.distM(osm.at.lat, osm.at.lon, p.lat, p.lon) > 450, old = now - osm.t > 15 * 60 * 1000;
+  if ((far || old) && !osm.busy && now > osm.nextTry) osmFetch(p.lat, p.lon);
+  if (!osm.at || N.distM(osm.at.lat, osm.at.lon, p.lat, p.lon) > 700) { st.osmLimit = null; st.osmRoad = ""; return; }
+  var m = N.matchWay(osm.ways, p.lat, p.lon, st.speed > 2 ? st.heading : null, st.acc && st.acc > 25 ? 40 : 28);
+  var v = m ? N.parseMaxspeed(m.way.tags, m.way.tags.oneway === "yes" ? null : m.forward) : null;
+  /* niet bij elk GPS-puntje wisselen: een nieuwe limiet pas na 2 keer achter elkaar */
+  if (v !== st.osmLimit) { if (osm.cand === v) osm.candN++; else { osm.cand = v; osm.candN = 1; } if (osm.candN >= 2 || st.osmLimit == null) st.osmLimit = v; }
+  else osm.candN = 0;
+  st.osmRoad = m ? (m.way.tags.name || m.way.tags.ref || "") : "";
+}
+(function () { var c = load("osmways", null); if (c && c.ways) { osm.ways = c.ways; osm.at = c.at; osm.t = c.t; } })();
 
 /* ---------- pauzeherinnering na 2 uur rijden ---------- */
 var driving = { since: 0, stopAt: 0, nextRemind: 0 };
@@ -1560,7 +1592,7 @@ function moesMotion() {
 function updateMoes() {
   if (!moes) return;
   var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
-  var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit;
+  var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit || st.osmLimit;
   if (st.speed < 0.8) { if (!stillSince) stillSince = now; } else stillSince = 0;
   /* korte reacties: alleen even schrikken/bezorgd kijken als een melding begint, daarna weer gewoon */
   var a = alertFor || "";

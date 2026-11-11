@@ -376,11 +376,72 @@
     return best;
   }
 
+  /* ---------- maximumsnelheid uit OpenStreetMap ---------- */
+  var ZONES = { "NL:urban": 50, "NL:rural": 80, "NL:motorway": 130, "NL:trunk": 100, "NL:living_street": 15, "NL:zone30": 30, "NL:zone60": 60,
+    "BE:urban": 50, "BE-VLG:rural": 70, "BE-WAL:rural": 90, "BE-BRU:rural": 70, "BE:motorway": 120, "BE:zone30": 30,
+    "DE:urban": 50, "DE:rural": 100, "DE:living_street": 7, "DE:zone30": 30 };
+  function oneSpeed(v) {
+    if (v == null) return null; v = String(v).trim();
+    if (ZONES[v] != null) return ZONES[v];
+    var z = v.match(/zone:?(\d+)/i); if (z) return +z[1];
+    if (/urban/i.test(v)) return 50; if (/rural/i.test(v)) return 80; if (/living_street/i.test(v)) return 15;
+    if (v === "walk") return 6; if (v === "none" || v === "signals" || v === "variable") return null;
+    var m = v.match(/^(\d+)(?:\s*(mph|km\/h|kmh))?/i); if (!m) return null;
+    return m[2] && /mph/i.test(m[2]) ? Math.round(+m[1] * 1.609) : +m[1];
+  }
+  /* geldt een tijdsvoorwaarde zoals "130 @ (19:00-06:00)" nu? */
+  function conditional(v, date) {
+    if (!v) return null;
+    var mins = date.getHours() * 60 + date.getMinutes(), out = null;
+    String(v).split(";").forEach(function (part) {
+      var m = part.match(/(\S+)\s*@\s*\(?\s*(?:[A-Za-z, \-]*\s)?(\d\d):(\d\d)\s*-\s*(\d\d):(\d\d)\s*\)?/);
+      if (!m || out != null) return;
+      var a = +m[2] * 60 + +m[3], b = +m[4] * 60 + +m[5];
+      if (a < b ? (mins >= a && mins < b) : (mins >= a || mins < b)) out = oneSpeed(m[1]);
+    });
+    return out;
+  }
+  function parseMaxspeed(tags, forward, date) {
+    tags = tags || {}; date = date || new Date();
+    var dir = forward == null ? "" : forward ? ":forward" : ":backward";
+    var c = (dir && conditional(tags["maxspeed" + dir + ":conditional"], date)) || conditional(tags["maxspeed:conditional"], date);
+    if (c) return c;
+    var v = (dir && oneSpeed(tags["maxspeed" + dir])) || oneSpeed(tags.maxspeed);
+    if (v) return v;
+    var t = tags["maxspeed:type"] || tags["source:maxspeed"] || tags["zone:maxspeed"];
+    return oneSpeed(t);
+  }
+  /* weg bij een positie zoeken: dichtstbijzijnde stukje, bij voorkeur in je rijrichting. ways: [{tags, g:[[lon,lat],...]}] */
+  function matchWay(ways, lat, lon, heading, maxD) {
+    var best = null; maxD = maxD || 30;
+    var k = Math.cos(lat * Math.PI / 180);
+    (ways || []).forEach(function (w) {
+      var g = w.g;
+      for (var i = 0; i < g.length - 1; i++) {
+        var ax = (g[i][0] - lon) * 111320 * k, ay = (g[i][1] - lat) * 110540, bx = (g[i + 1][0] - lon) * 111320 * k, by = (g[i + 1][1] - lat) * 110540;
+        var dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
+        var px = ax + t * dx, py = ay + t * dy, d = Math.sqrt(px * px + py * py);
+        if (d > maxD) continue;
+        var segB = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360, fwd = null, pen = 0;
+        if (heading != null) {
+          var df = angleDiff(segB, heading), db = angleDiff((segB + 180) % 360, heading);
+          fwd = df <= db; var off = Math.min(df, db);
+          if (w.tags && w.tags.oneway === "yes" && !fwd) off = Math.max(off, 90);
+          pen = off > 50 ? 25 : off * 0.15; /* dwarsweg: bijna nooit kiezen */
+        }
+        var sc = d + pen;
+        if (!best || sc < best.sc) best = { sc: sc, d: d, way: w, forward: fwd };
+      }
+    });
+    return best;
+  }
+
   var api = {
     distM: distM, bearing: bearing, angleDiff: angleDiff, instruction: instruction,
     fmtDist: fmtDist, sayDist: sayDist, fmtDur: fmtDur, roundDist: roundDist,
     buildRoute: buildRoute, remainingTime: remainingTime, locate: locate,
-    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, speedAt: speedAt, smoothPath: smoothPath, smoothAt: smoothAt, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree
+    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, speedAt: speedAt, smoothPath: smoothPath, smoothAt: smoothAt, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree,
+    parseMaxspeed: parseMaxspeed, matchWay: matchWay
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.NavCore = api;
 })(this);
