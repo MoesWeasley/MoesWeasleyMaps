@@ -122,6 +122,9 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 #scrim{position:fixed;inset:0;background:rgba(20,16,60,.25);z-index:7}
 
 /* positie-pijl */
+#navarrow{position:fixed;left:50%;top:71%;width:56px;height:56px;margin:-28px 0 0 -28px;z-index:3;pointer-events:none}
+#navarrow svg{width:56px;height:56px;filter:drop-shadow(0 4px 8px rgba(60,40,140,.45))}
+
 .me{width:40px;height:40px}
 .me svg{width:40px;height:40px;filter:drop-shadow(0 3px 6px rgba(60,40,140,.45))}
 .me.nofix{opacity:.45}
@@ -165,6 +168,7 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
   <button class="circle" id="navmute" aria-label="Stem aan/uit"></button>
   <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 </div>
+<div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><circle cx="20" cy="20" r="17" fill="#fff"/><path d="M20 6l9 24-9-5-9 5z" fill="url(#ng)"/></svg></div>
 <div id="speed"><b id="spd">0</b><small>km/u</small></div>
 <div id="limit" hidden></div>
 <button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>

@@ -216,7 +216,8 @@ function onPos(p, simulated) {
     var loc = N.locate(st.route, p.lat, p.lon, st.hint);
     var tol = Math.max(35, Math.min(80, (p.acc || 10) * 1.3));
     if (loc.off > tol) st.offCount++; else { st.offCount = 0; st.hint = loc.idx; }
-    if (loc.off < 25) { show = { lat: loc.lat, lon: loc.lon }; if (st.speed < 1.5 || camBearing == null) camBearing = loc.segBearing; }
+    /* op de route: pijl op de weg en in de richting van de weg (rustiger dan het GPS-kompas) */
+    if (loc.off < 25) { show = { lat: loc.lat, lon: loc.lon }; camBearing = loc.segBearing; }
     if (st.offCount >= 3 && Date.now() - st.lastReroute > 8000) reroute();
     else if (st.offCount === 0) navUpdate(loc.along);
   }
@@ -249,8 +250,14 @@ function frame(now) {
   var t = Math.min(1, (now - anim.t0) / anim.dur);
   anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
   anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
-  if (meMarker) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); }
   var following = st.follow && (st.nav || st.freeFollow);
+  /* tijdens navigeren staat de pijl vast op het scherm en draait de kaart eronder: geen trilling */
+  var fixed = following && st.nav;
+  $("navarrow").hidden = !fixed;
+  if (meMarker) {
+    meMarker.getElement().style.visibility = fixed ? "hidden" : "";
+    if (!fixed) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); }
+  }
   if (following) {
     var cam = { center: [anim.cur.lon, anim.cur.lat] };
     if (st.nav) {
@@ -444,6 +451,7 @@ function stopNav(silent) {
   document.body.classList.remove("nav");
   $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true; $("mute").hidden = false;
   hideAlert(); keepAwake(false);
+  $("navarrow").hidden = true; if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
   if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
   if (!silent) cancelRoute(); else { st.routes = []; drawRoutes(); if (destMarker) destMarker.remove(); }
 }
