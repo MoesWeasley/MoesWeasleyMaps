@@ -217,29 +217,50 @@ body.guide #then{display:none}
 @keyframes topin{from{opacity:0;transform:translateY(-14px)}}
 body.drive #street{bottom:calc(var(--sb) + 28px)}
 body.drive #limit{bottom:calc(var(--sb) + 70px)}
-/* assistent Moes: eigen glazen bubbel boven de snelheidsmeter */
-#moes{position:fixed;left:14px;bottom:calc(var(--sb) + 112px);z-index:6;width:70px;height:70px;border-radius:50%;
+/* assistent Moes: zittend wezeltje in een eigen glazen bubbel boven de snelheidsmeter */
+#moes{position:fixed;left:12px;bottom:calc(var(--sb) + 106px);z-index:6;width:78px;height:92px;border-radius:30px;
   background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow);
-  display:grid;place-items:center;overflow:visible}
-body.nav #moes{bottom:calc(var(--sb) + 192px)}
-#moes svg{width:62px;height:62px;overflow:visible}
-.moes-body{transform-origin:50px 80px;animation:moesBob 2.6s ease-in-out infinite}
-@keyframes moesBob{50%{transform:translateY(-2px) rotate(-1.5deg)}}
-.moes .eyes{transform-origin:50px 47px;animation:moesBlink 4.2s infinite}
-@keyframes moesBlink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
-.moes-arm{transform-origin:50px 80px;transition:transform .45s cubic-bezier(.3,1.4,.5,1),opacity .3s}
-.moes-shock .moes-body,.moes-fast .moes-body{animation:moesShake .32s linear infinite}
-@keyframes moesShake{25%{transform:translateX(-2px) rotate(-3deg)}75%{transform:translateX(2px) rotate(3deg)}}
-.moes-shock,.moes-fast{box-shadow:0 0 0 3px rgba(255,61,110,.55),var(--g-shadow)!important}
-.moes-happy .moes-body{animation:moesHop .7s ease-in-out infinite}
-@keyframes moesHop{50%{transform:translateY(-5px)}}
-.moes-happy{box-shadow:0 0 0 3px rgba(20,195,142,.5),var(--g-shadow)!important}
-.moes-worried{box-shadow:0 0 0 3px rgba(255,154,0,.5),var(--g-shadow)!important}
-.moes-sleepy .moes-body{animation:moesBreath 3.5s ease-in-out infinite}
-@keyframes moesBreath{50%{transform:scale(1.03)}}
+  display:grid;place-items:center;overflow:visible;transition:box-shadow .5s ease}
+body.nav #moes{bottom:calc(var(--sb) + 186px)}
+#moes svg{width:70px;height:81px;overflow:visible;margin-top:2px}
+#moes .m-live{transform-origin:50px 112px;animation:mBreath 3.2s ease-in-out infinite}
+@keyframes mBreath{50%{transform:scale(1.018,.982)}}
+#moes .m-all{transform-origin:50px 112px;transition:transform .75s cubic-bezier(.34,1.56,.64,1)}
+#moes .m-head{transform-origin:50px 66px;transition:transform .75s cubic-bezier(.34,1.56,.64,1)}
+#moes .m-armL{transform-origin:34px 74px;transition:transform .6s cubic-bezier(.34,1.7,.64,1)}
+#moes .m-armR{transform-origin:66px 74px;transition:transform .6s cubic-bezier(.34,1.7,.64,1)}
+#moes .m-fingerL,#moes .m-fingerR{opacity:0;transition:opacity .3s ease .15s}
+#moes .m-tail{transform-origin:66px 97px;animation:mTail 2.9s ease-in-out infinite}
+@keyframes mTail{50%{transform:rotate(-10deg)}}
+#moes .m-earL{transform-origin:28px 28px;animation:mEarL 5.2s ease-in-out infinite}
+#moes .m-earR{transform-origin:72px 28px;animation:mEarR 6.7s ease-in-out infinite}
+@keyframes mEarL{0%,88%,100%{transform:none}92%{transform:rotate(-16deg)}96%{transform:rotate(5deg)}}
+@keyframes mEarR{0%,85%,100%{transform:none}89%{transform:rotate(16deg)}93%{transform:rotate(-5deg)}}
+#moes .m-blink{transform-origin:50px 38px;animation:mBlink 4.6s infinite}
+@keyframes mBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+#moes .mf,#moes .mm,#moes .mx{opacity:0;transition:opacity .35s ease}
+#moes .m-blush{transition:opacity .5s}
+#moes[data-s=idle] .f-idle,#moes[data-s=point] .f-idle,#moes[data-s=shock] .f-shock,#moes[data-s=fast] .f-shock,#moes[data-s=worried] .f-worried,
+#moes[data-s=happy] .f-happy,#moes[data-s=sleepy] .f-sleepy,
+#moes[data-s=idle] .m-idle,#moes[data-s=point] .m-point,#moes[data-s=shock] .m-shock,#moes[data-s=fast] .m-shock,#moes[data-s=worried] .m-worried,
+#moes[data-s=happy] .m-happy,#moes[data-s=sleepy] .m-sleepy,
+#moes[data-s=shock] .x-sweat,#moes[data-s=worried] .x-sweat,#moes[data-s=shock] .x-alarm,#moes[data-s=fast] .x-alarm,
+#moes[data-s=happy] .x-sparks,#moes[data-s=sleepy] .x-zz{opacity:1}
+#moes[data-s=happy] .m-blush{opacity:.95}
+#moes[data-s=shock] .m-live,#moes[data-s=fast] .m-live{animation:mShake .34s linear infinite}
+@keyframes mShake{25%{transform:translateX(-1.6px) rotate(-2.5deg)}75%{transform:translateX(1.6px) rotate(2.5deg)}}
+#moes[data-s=happy] .m-live{animation:mHop .8s ease-in-out infinite}
+@keyframes mHop{0%,100%{transform:translateY(0) scale(1,1)}15%{transform:translateY(0) scale(1.05,.94)}50%{transform:translateY(-6px) scale(.97,1.04)}}
+#moes[data-s=sleepy] .m-live{animation:mBreath 4.8s ease-in-out infinite}
+#moes[data-s=happy] .m-tail{animation-duration:.9s}
+#moes.m-react svg{animation:mPop .5s ease-out}
+@keyframes mPop{30%{transform:scale(1.07,.93)}65%{transform:scale(.97,1.03)}}
+#moes[data-s=shock],#moes[data-s=fast]{box-shadow:0 0 0 3px rgba(255,61,110,.55),var(--g-shadow)}
+#moes[data-s=happy]{box-shadow:0 0 0 3px rgba(20,195,142,.5),var(--g-shadow)}
+#moes[data-s=worried]{box-shadow:0 0 0 3px rgba(255,154,0,.5),var(--g-shadow)}
 .zz{animation:moesZ 2.4s ease-in-out infinite}.z2{animation-delay:.8s}
 @keyframes moesZ{0%{opacity:0;transform:translateY(4px)}40%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
-.sparks{animation:moesSpark 1s ease-in-out infinite}@keyframes moesSpark{50%{opacity:.4}}
+.x-sparks>*{animation:moesSpark 1s ease-in-out infinite}@keyframes moesSpark{50%{opacity:.4}}
 /* glazen pijl */
 .me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
   -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
