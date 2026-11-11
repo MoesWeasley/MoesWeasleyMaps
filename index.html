@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#7b5cff">
+<title>MoesWeasley Maps</title>
+<link rel="stylesheet" href="lib/maplibre-gl.css" onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'">
+<style>
+:root{
+  --ink:#16173d;--mute:#5d6290;--bg:#f4f3ff;--card:#ffffff;--hair:rgba(22,23,61,.12);
+  --p1:#7b5cff;--p2:#ff4fa3;--p3:#ff9a3c;--go:#14c38e;--err:#ef3c5a;--warn:#ff9a00;--blue:#2f7bff;
+  --grad:linear-gradient(120deg,#7b5cff 0%,#c24dff 45%,#ff4fa3 75%,#ff9a3c 100%);
+  --shadow:0 6px 24px rgba(60,40,140,.22);--r:20px;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+[hidden]{display:none!important}
+#map{position:fixed;inset:0}
+.maplibregl-ctrl-attrib{font-size:10px}
+.maplibregl-ctrl-bottom-right{bottom:calc(var(--sb) + 4px)}
+
+/* ---- zoekbalk ---- */
+#top{position:fixed;left:12px;right:12px;top:calc(var(--st) + 12px);z-index:5}
+.search{display:flex;align-items:center;gap:6px;background:var(--card);border-radius:999px;box-shadow:var(--shadow);padding:6px 6px 6px 16px}
+.search .dot{width:12px;height:12px;border-radius:50%;background:var(--grad);flex:none}
+.search input{flex:1;border:0;outline:0;background:transparent;padding:10px 4px;font-size:17px;min-width:0}
+.iconbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none}
+.iconbtn svg{width:24px;height:24px}
+.iconbtn:active{background:rgba(123,92,255,.12)}
+#results{margin-top:8px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);max-height:60vh;overflow:auto}
+.res{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--hair);width:100%;text-align:left}
+.res:first-child{border-top:0}
+.res .pin{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;background:var(--grad)}
+.res .pin.recent{background:#e9e5ff;color:var(--p1)}
+.res b{display:block;font-weight:650}
+.res small{color:var(--mute)}
+.reshead{padding:10px 16px 4px;font-size:13px;color:var(--mute);font-weight:600;letter-spacing:.02em}
+
+/* ---- knoppen rechts ---- */
+#fabs{position:fixed;right:12px;bottom:calc(var(--sb) + 24px);display:flex;flex-direction:column;gap:12px;z-index:4}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center}
+.fab svg{width:26px;height:26px}
+.fab.report{background:var(--grad);color:#fff}
+.fab.active{color:var(--p1)}
+body.nav #fabs{bottom:calc(var(--sb) + 112px)}
+body.sheet-open #fabs{display:none}
+
+/* ---- onderblad ---- */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -6px 30px rgba(60,40,140,.25);padding:10px 16px calc(var(--sb) + 16px);max-height:80vh;overflow:auto;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--hair);margin:0 auto 10px}
+.sheet h2{margin:2px 0 4px;font-size:21px}
+.sheet .sub{color:var(--mute);margin:0 0 12px;font-size:14px}
+.alts{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 12px;margin:0 -2px}
+.alt{flex:1 0 140px;border:2px solid var(--hair);border-radius:16px;padding:10px 12px;text-align:left}
+.alt.sel{border-color:var(--p1);background:#f3f0ff}
+.alt .t{font-size:22px;font-weight:750}
+.alt .d{color:var(--mute);font-size:14px}
+.tag{display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 8px;margin-top:6px;background:#e9fbf4;color:#0b8a63}
+.tag.bad{background:#fff1e3;color:#b55d00}
+.row{display:flex;gap:10px}
+.big{flex:1;border-radius:16px;padding:15px;font-weight:700;font-size:17px;text-align:center}
+.big.go{background:var(--grad);color:#fff;box-shadow:0 6px 18px rgba(194,77,255,.35)}
+.big.ghost{background:#efedff;color:var(--p1)}
+.big.stop{background:var(--err);color:#fff}
+.set{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--hair)}
+.set small{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+.sw{appearance:none;-webkit-appearance:none;width:52px;height:32px;border-radius:16px;background:#d8d6ea;position:relative;flex:none;transition:.2s;margin:0}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transition:.2s}
+.sw:checked{background:var(--p1)}
+.sw:checked::after{left:23px}
+.small{padding:8px 14px;border-radius:999px;background:#efedff;color:var(--p1);font-weight:650;font-size:14px}
+.types{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:6px 0 14px}
+.type{border-radius:18px;padding:16px 6px;color:#fff;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.type svg{width:30px;height:30px}
+
+/* ---- navigatie ---- */
+#banner{position:fixed;left:10px;right:10px;top:calc(var(--st) + 10px);z-index:6;border-radius:22px;background:var(--grad);color:#fff;box-shadow:var(--shadow);padding:12px 14px;display:flex;gap:12px;align-items:center}
+#banner .ic{width:64px;height:64px;flex:none;border-radius:16px;background:rgba(255,255,255,.18);display:grid;place-items:center}
+#banner .ic svg{width:52px;height:52px}
+#bdist{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.01em}
+#btext{font-size:17px;font-weight:600;opacity:.97}
+#broad{font-size:14px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#then{position:fixed;left:18px;top:calc(var(--st) + 112px);z-index:6;background:#4b2fd6;color:#fff;border-radius:0 0 14px 14px;padding:4px 12px 6px;font-size:14px;font-weight:600;display:flex;gap:6px;align-items:center}
+#then svg{width:20px;height:20px}
+#navbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -6px 24px rgba(60,40,140,.2);padding:12px 14px calc(var(--sb) + 12px);display:flex;align-items:center;gap:10px}
+#navbar .eta{flex:1;display:flex;gap:16px;align-items:baseline}
+#navbar .eta b{font-size:24px;font-weight:800}
+#navbar .eta span{color:var(--mute);font-size:15px}
+#navbar .eta .arr{color:var(--go)}
+.circle{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:#efedff;color:var(--p1)}
+.circle.red{background:#ffe5ea;color:var(--err)}
+.circle svg{width:24px;height:24px}
+#speed{position:fixed;left:12px;bottom:calc(var(--sb) + 104px);z-index:6;width:74px;height:74px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;border:4px solid transparent}
+body:not(.nav) #speed{bottom:calc(var(--sb) + 24px)}
+#speed b{font-size:26px;font-weight:800;line-height:1}
+#speed small{font-size:11px;color:var(--mute)}
+#speed.over{border-color:var(--err);color:var(--err)}
+#limit{position:fixed;left:70px;bottom:calc(var(--sb) + 160px);z-index:7;width:42px;height:42px;border-radius:50%;background:#fff;border:5px solid var(--err);display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:var(--shadow)}
+body:not(.nav) #limit{bottom:calc(var(--sb) + 80px)}
+#recenter{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 146px);z-index:6;background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:12px 18px;font-weight:700;color:var(--p1);display:flex;gap:8px;align-items:center}
+#recenter svg{width:20px;height:20px}
+
+/* ---- waarschuwingen ---- */
+#alert{position:fixed;left:14px;right:14px;top:calc(var(--st) + 136px);z-index:9;border-radius:22px;padding:14px 16px;color:#fff;display:flex;gap:14px;align-items:center;box-shadow:0 10px 30px rgba(239,60,90,.45);background:linear-gradient(120deg,#ff3d6e,#ff7a3c);animation:pop .25s ease-out}
+body:not(.nav) #alert{top:calc(var(--st) + 80px)}
+#alert.traffic{background:linear-gradient(120deg,#ff9a00,#ffc93c);color:#3a2300;box-shadow:0 10px 30px rgba(255,154,0,.4)}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+#alert .ai{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;flex:none}
+#alert .ai svg{width:32px;height:32px}
+#alert b{display:block;font-size:22px;font-weight:800}
+#alert span{font-size:15px;font-weight:600;opacity:.95}
+#alert.pulse{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.03)}}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 110px);z-index:20;background:#1d1b3a;color:#fff;border-radius:14px;padding:12px 16px;font-size:15px;max-width:88vw;text-align:center;box-shadow:var(--shadow)}
+#toast.err{background:var(--err)}
+body.sheet-open #toast{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 96px)}
+.big:disabled{opacity:.45;filter:saturate(.4);pointer-events:none}
+/* routescherm: Annuleren/Start altijd zichtbaar onderin, de rest scrolt (liggend scherm, lange meldingen) */
+#rsbtns{position:sticky;bottom:calc(-1 * (var(--sb) + 16px));margin:0 -16px calc(-1 * (var(--sb) + 16px));padding:10px 16px calc(var(--sb) + 16px);background:var(--card);z-index:2}
+body:not(.dark) #rsbtns{background:linear-gradient(rgba(247,244,255,0),rgb(247,244,255) 10px)}
+body.dark #rsbtns{background:linear-gradient(rgba(30,26,62,0),rgb(30,26,62) 10px)}
+.alt.retry{text-align:center}
+#scrim{position:fixed;inset:0;background:rgba(20,16,60,.25);z-index:7}
+
+/* positie-pijl */
+#navarrow{position:fixed;left:50%;top:71%;width:56px;height:56px;margin:-28px 0 0 -28px;z-index:3;pointer-events:none}
+#navarrow svg{width:56px;height:56px;filter:drop-shadow(0 4px 8px rgba(60,40,140,.45))}
+
+.me{width:40px;height:40px}
+.me svg{width:40px;height:40px;filter:drop-shadow(0 3px 6px rgba(60,40,140,.45))}
+.me.nofix{opacity:.45}
+.destpin{width:34px;height:44px}
+.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:14px}
+
+/* ======== Glass-stijl (zoals Apple Liquid Glass) ======== */
+:root{
+  --g-bg:rgba(255,255,255,.30);--g-bg-strong:rgba(255,255,255,.46);
+  --g-blur:blur(22px) saturate(200%);
+  --g-edge:rgba(255,255,255,.7);
+  --g-shine:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.12) 45%,rgba(255,255,255,.05) 100%);
+  --g-shadow:0 10px 34px rgba(60,40,140,.20),0 2px 6px rgba(60,40,140,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 1px rgba(255,255,255,.35);
+}
+.search,#results,.fab:not(.report),#speed,#navbar,.sheet,#recenter,.circle,#then{
+  background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+  border:1px solid var(--g-edge);box-shadow:var(--g-shadow);
+}
+.sheet{background:var(--g-shine),var(--g-bg-strong);border-bottom:0;border-radius:30px 30px 0 0}
+#navbar{border-radius:30px 30px 0 0;border-bottom:0}
+#results{border-radius:24px}
+.res{border-top-color:rgba(22,23,61,.07)}
+.res:active{background:rgba(255,255,255,.5)}
+.grab{background:rgba(22,23,61,.18)}
+/* gekleurd glas: afslagbalk en melding */
+#banner{background:linear-gradient(120deg,rgba(123,92,255,.58),rgba(194,77,255,.52) 50%,rgba(255,79,163,.50) 80%,rgba(255,154,60,.50));
+  -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.45);border-radius:28px;
+  box-shadow:0 12px 36px rgba(123,92,255,.35),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 1px rgba(255,255,255,.2)}
+#banner::before,#alert::before,.fab.report::before,.big.go::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.38) 0%,rgba(255,255,255,0) 50%)}
+#banner .ic{background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.35);border-radius:18px}
+#then{background:linear-gradient(rgba(75,47,214,.55),rgba(75,47,214,.55));color:#fff;border-color:rgba(255,255,255,.4);border-top:0}
+#alert{background:linear-gradient(120deg,rgba(255,61,110,.64),rgba(255,122,60,.60));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+  border:1px solid rgba(255,255,255,.5);border-radius:28px}
+#alert.traffic{background:linear-gradient(120deg,rgba(255,154,0,.62),rgba(255,201,60,.58))}
+#alert .ai{background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.45)}
+.fab.report{position:relative;background:linear-gradient(135deg,rgba(123,92,255,.66),rgba(255,79,163,.66));-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);
+  border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 28px rgba(194,77,255,.35),inset 0 1px 0 rgba(255,255,255,.7)}
+.big{position:relative;border-radius:999px}
+.big.go{border:1px solid rgba(255,255,255,.5);box-shadow:0 10px 26px rgba(194,77,255,.38),inset 0 1px 0 rgba(255,255,255,.6)}
+.big.ghost{background:rgba(123,92,255,.12);border:1px solid rgba(255,255,255,.6);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
+.big.stop{border-radius:999px}
+.alt{background:rgba(255,255,255,.4);border:1.5px solid rgba(255,255,255,.75);border-radius:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
+.alt.sel{background:rgba(123,92,255,.14);border-color:rgba(123,92,255,.7)}
+.circle{color:var(--p1)}
+.circle.red{background:linear-gradient(rgba(239,60,90,.16),rgba(239,60,90,.16)),var(--g-bg);color:var(--err)}
+.small{background:rgba(123,92,255,.12);border:1px solid rgba(255,255,255,.6)}
+.set{border-top-color:rgba(22,23,61,.08)}
+.sw{background:rgba(22,23,61,.14);box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.type{position:relative;border:1px solid rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px rgba(60,40,140,.18)}
+.key{display:block;width:100%;margin-top:8px;border:1px solid rgba(255,255,255,.75);background:rgba(255,255,255,.45);border-radius:14px;padding:11px 12px;font-size:15px;outline:0;box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
+.key:focus{border-color:rgba(123,92,255,.7)}
+#toast{background:rgba(29,27,58,.5);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.18);border-radius:999px}
+#toast.err{background:rgba(239,60,90,.78)}
+#scrim{background:rgba(20,16,60,.12)}
+#speed{border-width:1px}
+#speed.over{border:3px solid var(--err)}
+#limit{box-shadow:0 6px 18px rgba(239,60,90,.3)}
+#banner,#alert{position:fixed}
+#banner,#alert:not(.traffic){text-shadow:0 1px 3px rgba(60,20,120,.35)}
+#navbar .eta span,.res small,.sheet .sub{color:#4b4f80}
+#street{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 92px);z-index:6;max-width:62vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding:8px 16px;border-radius:999px;font-weight:700;font-size:15px;color:var(--ink);
+  background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow)}
+/* rijstroken en bord onder de afslagbalk */
+#guide{position:fixed;left:10px;right:10px;top:calc(var(--st) + 118px);z-index:6;display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.lanes{display:flex;justify-content:center;gap:4px;padding:6px 10px;border-radius:20px;background:linear-gradient(180deg,rgba(40,30,110,.62),rgba(40,30,110,.48));
+  -webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid rgba(255,255,255,.35);box-shadow:0 8px 22px rgba(60,40,140,.25),inset 0 1px 0 rgba(255,255,255,.3)}
+.lane{width:40px;height:40px;display:grid;place-items:center;color:rgba(255,255,255,.32);border-radius:12px}
+.lane+.lane{border-left:2px dashed rgba(255,255,255,.25);border-radius:0}
+.lane.on{color:#fff;background:linear-gradient(180deg,rgba(123,92,255,.9),rgba(255,79,163,.85));border-radius:12px;box-shadow:0 0 14px rgba(255,79,163,.55)}
+.lane.on+.lane,.lane+.lane.on{border-left-color:transparent}
+.lane svg{width:30px;height:30px}
+.sign{align-self:center;min-width:62%;max-width:100%;background:linear-gradient(180deg,#2a63c9,#1b4aa3);color:#fff;border:3px solid #fff;border-radius:14px;padding:8px 14px 10px;
+  box-shadow:0 10px 26px rgba(20,40,120,.4),0 0 0 1px rgba(27,74,163,.6);font-family:"Arial Narrow",Arial,system-ui,sans-serif}
+.srow{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.shield{font-weight:800;font-size:16px;padding:1px 8px;border-radius:5px;border:2px solid #fff;line-height:1.25}
+.sa{background:#e2001a;color:#fff}.sn{background:#ffd200;color:#111;border-color:#111}.se{background:#0a8f3c;color:#fff}.ss{background:#fff;color:#1b4aa3}
+.exit{background:#fff;color:#1b4aa3;font-weight:800;font-size:15px;border-radius:5px;padding:1px 7px}
+.sarrow{width:26px;height:26px;margin-left:auto}
+.place{font-size:20px;font-weight:700;letter-spacing:.01em;line-height:1.25}
+body.guide #then{display:none}
+/* aankomst en rijmodus: zachte overgangen */
+#banner,#navbar{transition:opacity .45s ease,transform .45s ease,background .6s ease}
+#banner.leaving{opacity:0;transform:translateY(-16px) scale(.97)}
+#navbar.leaving{opacity:0;transform:translateY(24px)}
+#banner.arrived{background:linear-gradient(120deg,rgba(20,195,142,.66),rgba(47,155,255,.58) 60%,rgba(123,92,255,.55))}
+#banner.arrived #bdist{font-size:24px}
+#top.entering{animation:topin .5s ease-out}
+@keyframes topin{from{opacity:0;transform:translateY(-14px)}}
+body.drive #street{bottom:calc(var(--sb) + 28px)}
+body.drive #limit{bottom:calc(var(--sb) + 70px)}
+/* assistent Smiesh: zittend wezeltje in een eigen glazen bubbel boven de snelheidsmeter.
+   Houding, hoofd, armen en oren worden elk beeldje door veren in mascot.js bewogen. */
+#moes{position:fixed;left:12px;bottom:calc(var(--sb) + 106px);z-index:6;width:78px;height:92px;border-radius:30px;cursor:pointer;
+  background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow);
+  display:grid;place-items:center;overflow:visible;transition:box-shadow .5s ease;-webkit-user-select:none;user-select:none}
+body.nav #moes{bottom:calc(var(--sb) + 186px)}
+#moes svg{width:70px;height:81px;overflow:visible;margin-top:2px}
+#moes .m-live{transform-origin:50px 112px;animation:mBreath 3.2s ease-in-out infinite}
+@keyframes mBreath{50%{transform:scale(1.02,.98)}}
+#moes .m-all{transform-origin:50px 112px}
+#moes .m-head{transform-origin:50px 66px}
+#moes .m-armL,#moes .m-armLi{transform-origin:37px 79px}
+#moes .m-armR,#moes .m-armRi{transform-origin:63px 79px}
+#moes .m-earL{transform-origin:28px 28px}
+#moes .m-footL{transform-origin:33px 110px}
+#moes .m-footR{transform-origin:67px 110px}
+#moes.a-stretch .m-live{animation:mStretch 2.2s ease-in-out}
+@keyframes mStretch{40%,60%{transform:scale(.97,1.07) translateY(-2px)}}
+#moes.a-sneeze .m-head{animation:mSneeze 1.5s ease-in-out}
+@keyframes mSneeze{0%,100%{translate:0 0}35%{translate:0 -3px;rotate:-9deg}48%{translate:0 2px;rotate:7deg}60%{translate:0 0;rotate:0deg}}
+#moes.a-sneeze .m-live{animation:mSneezeB 1.5s ease-in-out}
+@keyframes mSneezeB{48%{transform:scale(1.05,.94)}}
+#moes.a-hop .m-live{animation:mHop .45s ease-in-out 3}
+#moes .px{opacity:0;transition:opacity .25s ease}
+#moes[data-s=yum] .f-happy,#moes[data-s=yum] .m-blush{opacity:1}
+#moes[data-s=listen] .f-idle,#moes[data-s=listen] .m-point,#moes[data-s=think] .f-idle,#moes[data-s=think] .m-sleepy{opacity:1}
+#moes[data-s=listen]{box-shadow:0 0 0 3px rgba(47,155,255,.6),var(--g-shadow);animation:mListen 1.1s ease-in-out infinite}
+@keyframes mListen{50%{box-shadow:0 0 0 7px rgba(47,155,255,.25),var(--g-shadow)}}
+#moes[data-s=listen] .x-listen,#moes[data-s=think] .x-think{opacity:1}
+#moes .x-listen .w1{animation:mWave1 1s ease-in-out infinite}#moes .x-listen .w2{animation:mWave1 1s ease-in-out .25s infinite}
+@keyframes mWave1{0%,100%{opacity:.25}50%{opacity:1}}
+#moes .x-think circle{animation:mDots 1.2s ease-in-out infinite}#moes .x-think .d2{animation-delay:.2s}#moes .x-think .d3{animation-delay:.4s}
+@keyframes mDots{0%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-2px)}}
+#moes[data-s=think]{box-shadow:0 0 0 3px rgba(194,77,255,.55),var(--g-shadow)}
+#moes[data-s=think] .m-live{animation:mBreath 1.2s ease-in-out infinite}
+#moes[data-s=yawn] .f-sleepy,#moes[data-s=yawn] .m-talk,#moes[data-s=rest] .f-sleepy,#moes[data-s=rest] .m-sleepy{opacity:1}
+#moes.a-eat .p-burger,#moes.a-drink .p-drink,#moes.a-game .p-game{opacity:1}
+#moes.a-eat .mm,#moes.a-drink .mm{opacity:0!important}
+#moes.a-eat .m-talk{opacity:1!important}
+#moes.a-eat .p-bob{animation:mBob .5s ease-in-out infinite alternate}
+@keyframes mBob{from{transform:translateY(0)}to{transform:translateY(-1.6px)}}
+#moes.a-eat .p-bite{transform-origin:50px 70px;animation:mGone 4.4s steps(4) forwards}
+@keyframes mGone{to{transform:scale(.45)}}
+#moes.a-eat .m-blush,#moes.a-drink .m-blush,#moes.a-game .m-blush{opacity:.95}
+#moes .p-crumbs{opacity:0}#moes.a-eat .p-crumbs{animation:mCrumb 1s ease-in 1s 3}
+@keyframes mCrumb{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(10px)}}
+#moes.a-drink .p-juice{animation:mSip 3.4s ease-in forwards}
+@keyframes mSip{to{transform:translateY(10px)}}
+#moes.a-game .m-armLi{animation:mThumb .18s ease-in-out infinite alternate}
+#moes.a-game .m-armRi{animation:mThumb .23s ease-in-out infinite alternate-reverse}
+@keyframes mThumb{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}
+#moes.a-game .p-scr{animation:mScr .9s steps(2) infinite}
+@keyframes mScr{50%{fill:#9cf0ff}}
+#moes.a-game .p-pix{animation:mSnake 1.6s steps(4) infinite}
+@keyframes mSnake{to{transform:translateX(5px)}}
+#moes.a-game .p-dot{animation:mDot 1.6s steps(1) infinite}
+@keyframes mDot{50%{transform:translate(-6px,2px)}}
+#moes.a-stretch .x-zz,#moes.a-sneeze .x-zz{opacity:0!important}
+#moes .m-earR{transform-origin:72px 28px}
+#moes .m-fingerL,#moes .m-fingerR{opacity:0;transition:opacity .3s ease .15s}
+#moes .m-tail{transform-origin:66px 97px;animation:mTail 2.9s ease-in-out infinite}
+@keyframes mTail{0%,100%{transform:rotate(0)}30%{transform:rotate(-12deg)}55%{transform:rotate(4deg)}80%{transform:rotate(-6deg)}}
+#moes .m-blink{transform-origin:50px 38px;animation:mBlink 4.6s infinite}
+@keyframes mBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
+/* Smiesh op een eigen laag: zijn bewegingen laten het glas erachter niet steeds opnieuw tekenen */
+#moes svg{will-change:transform;transform:translateZ(0)}
+#moes .mf,#moes .mm,#moes .mx{opacity:0;transition:opacity .35s ease}
+#moes .m-blush{transition:opacity .5s}
+#moes[data-s=idle] .f-idle,#moes[data-s=point] .f-idle,#moes[data-s=shock] .f-shock,#moes[data-s=fast] .f-shock,#moes[data-s=worried] .f-worried,
+#moes[data-s=happy] .f-happy,#moes[data-s=sleepy] .f-sleepy,
+#moes[data-s=idle] .m-idle,#moes[data-s=point] .m-point,#moes[data-s=shock] .m-shock,#moes[data-s=fast] .m-shock,#moes[data-s=worried] .m-worried,
+#moes[data-s=happy] .m-happy,#moes[data-s=sleepy] .m-sleepy,
+#moes[data-s=shock] .x-sweat,#moes[data-s=worried] .x-sweat,#moes[data-s=shock] .x-alarm,#moes[data-s=fast] .x-alarm,
+#moes[data-s=happy] .x-sparks,#moes[data-s=sleepy] .x-zz,#moes.a-heart .x-heart{opacity:1}
+#moes[data-s=happy] .m-blush,#moes.a-giggle .m-blush,#moes.a-heart .m-blush{opacity:.95}
+/* praten: mondje gaat open en dicht */
+#moes.m-talking .mm{opacity:0!important}
+#moes.m-talking .m-talk{opacity:1!important}
+#moes .m-talkmouth{transform-origin:50px 56px;animation:mTalk .22s ease-in-out infinite alternate}
+@keyframes mTalk{from{transform:scale(1,.25)}to{transform:scale(1,1)}}
+/* acties */
+#moes.a-wave .m-armRi{animation:mWave .38s ease-in-out infinite alternate}
+@keyframes mWave{from{transform:rotate(-16deg)}to{transform:rotate(16deg)}}
+#moes.a-scratch .m-armLi{animation:mScratch .16s ease-in-out infinite alternate}
+@keyframes mScratch{from{transform:rotate(-7deg)}to{transform:rotate(7deg)}}
+#moes.a-yawn .m-sleepy,#moes.a-yawn .m-shock{opacity:0}
+#moes.a-yawn .m-talk{opacity:1}
+#moes.a-yawn .m-talkmouth{animation:mYawn 1.7s ease-in-out}
+@keyframes mYawn{0%,100%{transform:scale(.8,.3)}35%,70%{transform:scale(1.15,1.45)}}
+#moes.a-giggle .m-live{animation:mHop .5s ease-in-out 3}
+#moes.a-wake .m-live{animation:mJolt .9s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes mJolt{0%{transform:translateY(4px) scale(1,.92)}18%{transform:translateY(-14px) scale(.96,1.06) rotate(-4deg)}32%{transform:translateY(-10px) rotate(5deg)}46%{transform:translateY(-6px) rotate(-4deg)}62%{transform:translateY(-2px) rotate(2deg)}100%{transform:none}}
+#moes.a-heart .x-heart{animation:mHeart 1.7s ease-out}
+@keyframes mHeart{0%{transform:translateY(6px) scale(.4)}30%{transform:translateY(0) scale(1.15)}100%{transform:translateY(-12px) scale(1);opacity:0}}
+#moes[data-s=shock] .m-live,#moes[data-s=fast] .m-live{animation:mShake .34s linear infinite}
+@keyframes mShake{25%{transform:translateX(-1.6px) rotate(-2.5deg)}75%{transform:translateX(1.6px) rotate(2.5deg)}}
+#moes[data-s=happy] .m-live{animation:mHop .8s ease-in-out infinite}
+@keyframes mHop{0%,100%{transform:translateY(0) scale(1,1)}15%{transform:translateY(0) scale(1.06,.93)}50%{transform:translateY(-6px) scale(.96,1.05)}}
+#moes[data-s=sleepy] .m-live{animation:mBreath 4.8s ease-in-out infinite}
+#moes[data-s=happy] .m-tail{animation-duration:.9s}
+#moes.m-react svg{animation:mPop .5s ease-out}
+@keyframes mPop{30%{transform:scale(1.07,.93)}65%{transform:scale(.97,1.03)}}
+#moes:active svg{transform:scale(.94)}
+#moes[data-s=shock],#moes[data-s=fast]{box-shadow:0 0 0 3px rgba(255,61,110,.55),var(--g-shadow)}
+#moes[data-s=happy]{box-shadow:0 0 0 3px rgba(20,195,142,.5),var(--g-shadow)}
+#moes[data-s=worried]{box-shadow:0 0 0 3px rgba(255,154,0,.5),var(--g-shadow)}
+.zz{animation:moesZ 2.4s ease-in-out infinite}.z2{animation-delay:.8s}
+@keyframes moesZ{0%{opacity:0;transform:translateY(4px)}40%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
+.x-sparks>*{animation:moesSpark 1s ease-in-out infinite}@keyframes moesSpark{50%{opacity:.4}}
+/* tekstballonnetje van Smiesh */
+.moes-say{position:absolute;left:84px;bottom:46px;max-width:56vw;padding:8px 12px;border-radius:16px 16px 16px 4px;font:700 14px/1.25 system-ui,sans-serif;color:#2a2060;
+  background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.9);box-shadow:0 8px 22px rgba(60,40,140,.22);white-space:nowrap;pointer-events:none;
+  transform-origin:0 100%}
+.moes-say.in{animation:sayIn .35s cubic-bezier(.34,1.56,.64,1)}
+.moes-say.out{animation:sayOut .3s ease-in forwards}
+@keyframes sayIn{from{opacity:0;transform:scale(.6) translateY(6px)}}
+@keyframes sayOut{to{opacity:0;transform:scale(.85) translateY(4px)}}
+/* glazen pijl */
+.me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
+  -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
+  border:1.5px solid rgba(255,255,255,.85);box-shadow:0 8px 22px rgba(60,40,140,.35),inset 0 1px 1px rgba(255,255,255,.95),inset 0 -2px 6px rgba(123,92,255,.18)}
+.me{width:42px;height:42px;display:grid;place-items:center}
+.me svg{width:30px;height:30px;filter:drop-shadow(0 2px 3px rgba(60,40,140,.4))}
+#navarrow{display:grid;place-items:center}
+#navarrow svg{width:40px;height:40px;filter:drop-shadow(0 3px 4px rgba(60,40,140,.45))}
+
+/* ======== Eén dynamische balk (compact) ======== */
+#banner{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;border-radius:24px}
+.brow{display:flex;gap:12px;align-items:center;min-width:0}
+#banner .ic{width:50px;height:50px;border-radius:15px}
+#banner .ic svg{width:42px;height:42px}
+.btx{min-width:0;flex:1}
+.bline{display:flex;align-items:baseline;gap:10px;min-width:0}
+#bdist{font-size:26px;font-weight:800;line-height:1.1;flex:none}
+#btext{font-size:16px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#broad{font-size:13px;opacity:.88}
+#then{position:static;flex:none;display:flex;flex-direction:column;align-items:center;gap:0;padding:4px 7px 3px;border-radius:13px;font-size:10px;font-weight:700;
+  background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.04em}
+#then svg{width:26px;height:26px}
+body.guide #then{display:flex}
+#guide{position:static;display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;animation:grow .22s ease-out}
+#guide[hidden],#balert[hidden],#then[hidden]{display:none!important}
+@keyframes grow{from{opacity:0;transform:translateY(-6px)}}
+.lanes{padding:3px 6px;border-radius:14px;gap:2px;background:rgba(30,20,90,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.25)}
+.lane{width:30px;height:30px;border-radius:9px}
+.lane.on{border-radius:9px;box-shadow:0 0 10px rgba(255,79,163,.6)}
+.lane svg{width:22px;height:22px}
+.sign{align-self:auto;min-width:0;max-width:100%;display:flex;align-items:center;gap:7px;padding:4px 10px;border-width:2px;border-radius:10px;
+  box-shadow:0 4px 12px rgba(20,40,120,.35);text-shadow:none}
+.sign .srow{margin:0;gap:5px;flex:none}
+.shield{font-size:13px;padding:0 6px;border-width:1.5px}
+.exit{font-size:12px;padding:0 5px}
+.sarrow{width:18px;height:18px;margin:0}
+.places{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* melding als strook onderin de balk */
+#balert{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:16px;animation:grow .22s ease-out;
+  background:linear-gradient(120deg,rgba(255,40,90,.72),rgba(255,110,50,.68));border:1px solid rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+#balert.traffic{background:linear-gradient(120deg,rgba(255,150,0,.78),rgba(255,196,50,.72));color:#3a2300;text-shadow:none}
+#balert .ai{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.5)}
+#balert .ai svg{width:20px;height:20px}
+.atx{min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.atx b{font-size:15px;font-weight:800}
+.atx span{font-size:13px;font-weight:600;opacity:.95}
+#balert.pulse{animation:pulse 1s infinite}
+/* buiten navigeren: kleine losse melding bovenin */
+#alert{left:50%;right:auto;transform:translateX(-50%);max-width:92vw;padding:8px 14px 8px 8px;gap:10px;border-radius:999px}
+#alert .ai{width:36px;height:36px}#alert .ai svg{width:22px;height:22px}
+#alert .ai.badge,#balert .ai.badge{background:none;border:0;filter:drop-shadow(0 2px 4px rgba(30,20,80,.25))}
+#alert .ai.badge svg,#balert .ai.badge svg{width:100%;height:100%}
+#alert b{font-size:16px}#alert span{font-size:13px}
+@keyframes pop{from{opacity:0;transform:translateX(-50%) scale(.92)}}
+@keyframes pulse{50%{transform:translateX(-50%) scale(1.03)}}
+#balert.pulse{animation:pulse2 1s infinite}@keyframes pulse2{50%{transform:scale(1.02)}}
+/* maximumsnelheid: klein rondje aan de snelheidsbubbel */
+#limit{left:62px;bottom:calc(var(--sb) + 150px);width:36px;height:36px;border-width:4px;font-size:14px;letter-spacing:-.03em;color:#16173d}
+body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
+#speed.over b{color:var(--err)}
+
+
+/* segmentknoppen, routegereedschap, tussenstops */
+.seg{display:inline-flex;background:rgba(123,92,255,.12);border-radius:999px;padding:3px;gap:2px;flex:none}
+.seg button{padding:6px 10px;border-radius:999px;font-size:13px;font-weight:650;color:var(--p1)}
+.seg button.on{background:var(--grad);color:#fff;box-shadow:0 3px 10px rgba(194,77,255,.3)}
+.opt{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:15px}
+.sw.sm{width:42px;height:26px}.sw.sm::after{width:20px;height:20px}.sw.sm:checked::after{left:19px}
+.row.tools{margin:0 0 12px;flex-wrap:wrap;align-items:center}
+#favpick{display:inline-flex;gap:6px}
+#stops{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+#stops:empty{display:none}
+.stop{display:inline-flex;align-items:center;gap:6px;padding:6px 6px 6px 10px;border-radius:999px;font-size:13px;font-weight:650;background:rgba(123,92,255,.12);color:var(--ink)}
+.stop b{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--grad);color:#fff;font-size:11px}
+.stop button{width:22px;height:22px;border-radius:50%;background:rgba(22,23,61,.1);font-size:13px;line-height:1}
+/* spaarstand: doorlopende CSS-animaties stil */
+body.saver #moes .m-live,body.saver #moes .m-tail,body.saver #moes .zz,body.saver .x-sparks>*{animation-play-state:paused}
+/* hulpdienstmelding: blauw-rood, rustig knipperend */
+#balert.hulp,#alert.hulp{background:linear-gradient(110deg,rgba(40,90,255,.82),rgba(120,60,230,.75) 50%,rgba(255,40,80,.82));background-size:220% 100%;
+  animation:hulpGlow 1.6s ease-in-out infinite;color:#fff;text-shadow:0 1px 3px rgba(0,0,40,.35)}
+@keyframes hulpGlow{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+#balert.hulp.pulse,#alert.hulp.pulse{animation:hulpGlow .8s ease-in-out infinite}
+/* ======== Nachtmodus: donker glas, zachte kleuren ======== */
+body.dark{--ink:#eceeff;--mute:#b4b7e6;--bg:#0f0d24;--card:#1f1b3d;--hair:rgba(255,255,255,.12);
+  --g-bg:rgba(28,22,66,.48);--g-bg-strong:rgba(28,22,66,.66);--g-edge:rgba(255,255,255,.16);
+  --g-shine:linear-gradient(180deg,rgba(255,255,255,.12) 0%,rgba(255,255,255,.03) 45%,rgba(255,255,255,0) 100%);
+  --g-shadow:0 10px 34px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.16),inset 0 -1px 1px rgba(255,255,255,.05)}
+body.dark{background:#0f0d24}
+body.dark #navbar .eta span,body.dark .res small,body.dark .sheet .sub{color:#b4b7e6}
+body.dark .alt{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);box-shadow:none}
+body.dark .alt.sel{background:rgba(123,92,255,.22);border-color:rgba(160,135,255,.7)}
+body.dark .big.ghost,body.dark .small{background:rgba(160,135,255,.16);color:#c9b8ff;border-color:rgba(255,255,255,.14)}
+body.dark .key{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.16);color:#eceeff}
+body.dark .sw{background:rgba(255,255,255,.16)}
+body.dark .res .pin.recent{background:rgba(160,135,255,.2);color:#c9b8ff}
+body.dark .circle{background:rgba(160,135,255,.16);color:#c9b8ff}
+body.dark .circle.red{background:rgba(239,60,90,.22);color:#ff8fa3}
+body.dark #banner{background:linear-gradient(120deg,rgba(90,60,220,.62),rgba(150,50,200,.55) 50%,rgba(200,50,130,.5) 80%,rgba(210,110,40,.48))}
+body.dark #limit{background:#fff;color:#16173d}
+body.dark .moes-say{background:rgba(40,32,90,.88);color:#f0ecff;border-color:rgba(255,255,255,.15)}
+body.dark #recenter{color:#c9b8ff}
+body.dark .seg button{color:#c9b8ff}
+body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- zoeken -->
+<div id="top">
+  <div class="search">
+    <span class="dot"></span>
+    <input id="q" type="search" placeholder="Waar wil je heen?" autocomplete="off" enterkeyhint="search">
+    <button class="iconbtn" id="qclear" hidden aria-label="Wissen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <button class="iconbtn" id="opensettings" aria-label="Instellingen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.4"/><circle cx="10" cy="17" r="2.4"/></svg></button>
+  </div>
+  <div id="results" hidden></div>
+</div>
+
+<!-- knoppen -->
+<div id="fabs">
+  <button class="fab" id="locate" aria-label="Mijn locatie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+</div>
+
+<!-- navigatie -->
+<!-- één dynamische balk: afslag altijd, rijstroken/bord en melding alleen als het nodig is -->
+<div id="banner" hidden>
+  <div class="brow">
+    <div class="ic" id="bicon"></div>
+    <div class="btx">
+      <div class="bline"><span id="bdist">–</span><span id="btext">Route berekenen…</span></div>
+      <div id="broad"></div>
+    </div>
+    <div id="then" hidden><span id="thenic"></span><small>daarna</small></div>
+  </div>
+  <div id="guide" hidden></div>
+  <div id="balert" hidden><div class="ai" id="baicon"></div><div class="atx"><b id="batitle"></b><span id="batext"></span></div></div>
+</div>
+<div id="navbar" hidden>
+  <div class="eta"><b class="arr" id="eta">--:--</b><span id="remt">– min</span><span id="remd">– km</span></div>
+  <button class="circle" id="navset" aria-label="Instellingen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.4"/><circle cx="10" cy="17" r="2.4"/></svg></button>
+  <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+<div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#ng)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+<div id="street" hidden></div>
+<div id="moes" class="moes" hidden></div>
+<div id="speed"><b id="spd">0</b><small>km/u</small></div>
+<div id="limit" hidden></div>
+<button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>
+
+<div id="alert" hidden><div class="ai" id="aicon"></div><div><b id="atitle">Let op flitser</b><span id="atext"></span></div></div>
+
+<div id="scrim" hidden></div>
+
+<!-- route kiezen -->
+<div class="sheet" id="routesheet" hidden>
+  <div class="grab"></div>
+  <h2 id="destname">Bestemming</h2>
+  <p class="sub" id="destsub"></p>
+  <div class="alts" id="alts"></div>
+  <p class="sub" id="routewarn" hidden></p>
+  <div id="stops"></div>
+  <div class="row tools">
+    <button class="small" id="addstop">+ Tussenstop</button>
+    <button class="small" id="favbtn">☆ Bewaren</button>
+    <span id="favpick" hidden><button class="small" data-fav="home">Thuis</button><button class="small" data-fav="work">Werk</button><button class="small" data-fav="list">Favoriet</button></span>
+  </div>
+  <div class="row" id="rsbtns">
+    <button class="big ghost" id="cancelroute">Annuleren</button>
+    <button class="big go" id="startnav">Start</button>
+  </div>
+</div>
+
+
+<!-- instellingen -->
+<div class="sheet" id="settings" hidden>
+  <div class="grab"></div>
+  <h2>Instellingen</h2>
+  <div class="set"><span>Weergave<small>Automatisch donker van 19:30 tot 7:00.</small></span><span class="seg" id="seg-theme"><button data-v="auto">Auto</button><button data-v="light">Licht</button><button data-v="dark">Donker</button></span></div>
+  <label class="set"><span>Gesproken aanwijzingen<small>Een Nederlandse stem zegt de afslagen voor.</small></span><input type="checkbox" class="sw" id="s-voice"></label>
+  <div class="set"><span>Stem testen<small id="voiceinfo">Hoor je niets? Installeer de Nederlandse stem via Android-instellingen &gt; Systeem &gt; Talen &gt; Tekst-naar-spraak.</small></span><button class="small" id="testvoice">Test</button></div>
+  <label class="set"><span>Flitsmelder<small id="flitsinfo">Flitspalen, trajectcontroles en meldingen.</small></span><input type="checkbox" class="sw" id="s-flits"></label>
+  <label class="set"><span>Verkeersinfo<small id="trafinfo">Files, ongevallen en afsluitingen van het NDW.</small></span><input type="checkbox" class="sw" id="s-traffic"></label>
+  <div class="set" style="display:block"><span>3D-kaart (Mapbox)<small id="mapboxinfo">Met een gratis Mapbox-sleutel: echte 3D-bomen, belichte gebouwen en monumenten. Zonder sleutel: de gratis open kaart.</small></span>
+    <input class="key" id="k-mapbox" placeholder="Mapbox-sleutel (pk.…)" autocomplete="off" spellcheck="false">
+    <button class="small" id="savemapbox" style="margin-top:8px">Opslaan</button></div>
+  <label class="set"><span>Laadpunten op de kaart<small>Laadpalen uit OpenStreetMap, zichtbaar als je inzoomt. Tik erop voor stekkers en vermogen.</small></span><input type="checkbox" class="sw" id="s-chargers"></label>
+  <label class="set"><span>Regen op je route<small>Waarschuwt als het gaat regenen waar je straks rijdt (Buienradar).</small></span><input type="checkbox" class="sw" id="s-rain"></label>
+  <label class="set"><span>Milieuzones<small>Laat zien of je route door een milieuzone gaat en waarschuwt vlak ervoor.</small></span><input type="checkbox" class="sw" id="s-zones"></label>
+  <label class="set"><span>Verkeerslichten op de kaart<small>Stoplichten uit OpenStreetMap, zichtbaar als je inzoomt.</small></span><input type="checkbox" class="sw" id="s-signals"></label>
+  <label class="set"><span>Drukte op de kaart<small>Wegen kleuren groen, oranje of rood naar hoe druk het is (TomTom of HERE).</small></span><input type="checkbox" class="sw" id="s-flow"></label>
+  <div class="set" style="display:block"><span>Live verkeer (TomTom / HERE)<small id="liveinfo">Vul een gratis sleutel in voor live files, ongevallen en drukte op de kaart.</small></span>
+    <input class="key" id="k-tomtom" placeholder="TomTom API-sleutel" autocomplete="off" spellcheck="false">
+    <input class="key" id="k-here" placeholder="HERE API-sleutel" autocomplete="off" spellcheck="false">
+    <button class="small" id="savekeys" style="margin-top:8px">Opslaan</button></div>
+  <label class="set"><span>Assistent Smiesh<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
+  <label class="set"><span>Hulpdienstdetector<small id="detinfo">Nog niet gekoppeld.</small></span><input type="checkbox" class="sw" id="s-det"></label>
+  <div class="set"><span>Detector<small>Gevoeligheid: hoger = eerder melden, maar vaker vals alarm.</small></span><span><button class="small" id="detpair">Koppelen</button> <button class="small" id="dettest">Testen</button></span></div>
+  <div class="set"><span>Gevoeligheid</span><span class="seg" id="seg-det"><button data-v="16">Laag</button><button data-v="12">Normaal</button><button data-v="9">Hoog</button><button data-v="6">Max</button></span></div>
+  <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
+  <label class="set"><span>Smiesh met AI<small id="aiinfo">Tik op Smiesh en vraag iets: hoe laat ben je er, zoek een tankstation, zet het geluid uit… Werkt met een gratis Google Gemini-sleutel (aistudio.google.com).</small></span><input type="checkbox" class="sw" id="s-ai"></label>
+  <div class="set" style="display:block"><span>Gemini-sleutel</span>
+    <input class="key" id="k-gemini" placeholder="Google Gemini API-sleutel (AIza…)" autocomplete="off" spellcheck="false">
+    <button class="small" id="savegemini" style="margin-top:8px">Opslaan</button> <button class="small" id="testgemini" style="margin-top:8px">Testen</button></div>
+  <label class="set"><span>Smiesh spreekt de aanwijzingen<small>De stem klinkt dan als Smiesh (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
+  <div class="set" style="display:block"><span>Route-opties<small id="avoidinfo">Vermijden werkt met een Mapbox-sleutel.</small></span>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-notoll"> Tol vermijden</label>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-nomotorway"> Snelwegen vermijden</label>
+    <label class="opt"><input type="checkbox" class="sw sm" id="s-noferry"> Veerponten vermijden</label></div>
+  <div class="set"><span>Batterijbesparing<small id="saverinfo">Rustigere animaties als de batterij bijna leeg is.</small></span><span class="seg" id="seg-saver"><button data-v="auto">Auto</button><button data-v="on">Aan</button><button data-v="off">Uit</button></span></div>
+  <div class="set" id="bgrow"><span>Navigeren met scherm uit<small id="bginfo">Laat de app op de achtergrond doorwerken, zodat je stem en flitsmeldingen blijft horen.</small></span><button class="small" id="bgallow">Toestaan</button></div>
+  <div class="set"><span>Favorieten<small id="favinfo">Nog geen favorieten.</small></span><button class="small" id="clearfav">Wissen</button></div>
+  <div class="set"><span>Rit simuleren<small>Rijdt de gekozen route na, handig om thuis te testen.</small></span><button class="small" id="simulate">Start</button></div>
+  <button class="big ghost" style="width:100%;margin-top:10px" id="closesettings">Klaar</button>
+  <p class="foot">MoesWeasley Maps · MoesWeasley™<br>Kaart © OpenStreetMap-bijdragers, OpenFreeMap of Mapbox · Routes OSRM · Verkeer NDW</p>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="lib/maplibre-gl.js"></script>
+<script>if(!window.maplibregl)document.write('<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"><\/script>')</script>
+<script src="config.js"></script>
+<script src="nav-core.js"></script>
+<script src="mascot.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

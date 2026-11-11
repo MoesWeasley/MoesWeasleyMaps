@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MoesDetector installeren</title>
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+<style>
+  body{margin:0;min-height:100vh;font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#16173d;
+    background:linear-gradient(135deg,#d9deff,#ffe3f0 50%,#e2f7ef)}
+  main{max-width:620px;margin:0 auto;padding:40px 20px}
+  .card{background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);
+    border:1px solid rgba(255,255,255,.8);border-radius:24px;padding:24px;box-shadow:0 10px 34px rgba(60,40,140,.18)}
+  h1{margin:0 0 6px;font-size:28px} .sub{color:#5d6290;margin:0 0 20px}
+  ol{padding-left:20px} li{margin:8px 0}
+  esp-web-install-button button[slot=activate]{border:0;border-radius:999px;padding:14px 26px;font:700 17px system-ui;color:#fff;cursor:pointer;
+    background:linear-gradient(120deg,#7b5cff,#c24dff 45%,#ff4fa3 75%,#ff9a3c);box-shadow:0 8px 20px rgba(194,77,255,.35)}
+  .note{font-size:14px;color:#5d6290;margin-top:18px}
+  .warn{background:rgba(255,154,0,.15);border-radius:14px;padding:10px 14px;font-size:14px;margin-top:14px}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>MoesDetector installeren</h1>
+    <p class="sub">Hulpdienstdetector voor MoesWeasley Maps · Heltec WiFi LoRa 32 V3 (433 MHz)</p>
+    <ol>
+      <li>Open deze pagina op een <b>computer</b> in <b>Chrome</b> of <b>Edge</b>.</li>
+      <li>Sluit het bordje met een USB-C-kabel aan (een kabel die ook data doet, niet alleen laden).</li>
+      <li>Klik op de knop hieronder en kies het bordje in de lijst (meestal "USB JTAG/serial" of "CP2102").</li>
+      <li>Klaar? Het schermpje toont <b>MoesDetector</b>. Koppel hem daarna in de app bij Instellingen &gt; Hulpdienstdetector.</li>
+    </ol>
+    <esp-web-install-button manifest="manifest.json">
+      <button slot="activate">Installeren op het bordje</button>
+      <span slot="unsupported">Deze browser kan dit niet. Gebruik Chrome of Edge op een computer.</span>
+      <span slot="not-allowed">Open deze pagina via https.</span>
+    </esp-web-install-button>
+    <div class="warn">Lukt het niet? Houd de <b>PRG</b>-knop ingedrukt, druk kort op <b>RST</b>, laat PRG los en probeer opnieuw.</div>
+    <p class="note">De detector meet alleen hoe sterk er op de C2000-frequenties wordt uitgezonden. Er wordt niets ontvangen,
+      opgeslagen of ontcijferd. Met de PRG-knop wissel je de gevoeligheid. MoesWeasley™</p>
+  </div>
+</main>
+</body>
+</html>
