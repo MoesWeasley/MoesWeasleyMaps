@@ -78,6 +78,7 @@
     yawn:    { pose: { L: 168, R: -168, head: -6, lean: 0, y: -3, look: [0, 0] }, cls: "a-yawn", ms: 1700, face: "sleepy" },
     look:    { pose: null, cls: "a-look", ms: 2600, face: null },
     giggle:  { pose: { L: 120, R: -120, head: 0, lean: 0, y: -3, look: [0, 0] }, cls: "a-giggle", ms: 1500, face: "happy" },
+    wake:    { pose: { L: 158, R: -158, head: -7, lean: 0, y: -9, look: [0, -1.4] }, cls: "a-wake", ms: 1300, face: "shock" },
     heart:   { pose: { L: 128, R: -128, head: -6, lean: 0, y: -2, look: [0, 0] }, cls: "a-heart", ms: 1700, face: "happy" }
   };
 

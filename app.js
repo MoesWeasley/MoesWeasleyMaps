@@ -1495,13 +1495,22 @@ function moesLine(state, dir) {
   return null;
 }
 /* tikken op Moes */
-var TAPS = 0, tapT = null;
+var TAPS = 0, tapT = null, moesAwakeUntil = 0;
 function moesTap() {
   if (!moes) return;
   TAPS++; clearTimeout(tapT); tapT = setTimeout(function () { TAPS = 0; }, 2500);
   var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Moes.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
   if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
   if (kmh > 5) lines.push("We gaan " + kmh + " km/u!");
+  /* slaapt hij? dan schrikt hij eerst wakker, wrijft in zijn ogen en blijft daarna een tijdje wakker */
+  if (moes.state === "sleepy" || (stillSince && Date.now() - stillSince > 30000 && !st.nav && Date.now() > moesAwakeUntil)) {
+    TAPS = 0; stillSince = Date.now(); moesAwakeUntil = Date.now() + 3 * 60 * 1000;
+    moes.set("idle"); lastMoesState = "idle"; moes.play("wake", true);
+    var wl = ["Huh?! Ik sliep niet hoor!", "Wa-wat?! Ik ben wakker!", "Oei, je liet me schrikken!", "Hè? Zijn we er al?"][Math.floor(Math.random() * 4)];
+    moes.say(wl, 2200); if (S.moesVoice && S.voice) say(wl);
+    setTimeout(function () { if (moes.state === "idle") moes.play("scratch", true); }, 1500);
+    return;
+  }
   if (TAPS >= 3) { moes.play("heart", true); moes.say("Ik vind jou ook lief!", 2200); TAPS = 0; return; }
   var line = lines[Math.floor(Math.random() * lines.length)];
   moes.play("giggle", true); moes.say(line, 2400); if (S.moesVoice && S.voice) say(line);
@@ -1547,7 +1556,7 @@ function updateMoes() {
   else if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "t") state = "worried";
   else if (st.happyUntil && now < st.happyUntil) state = "happy";
   else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist < Math.max(400, N.thresholds(st.speed).prep + 100)) { state = "point"; dir = st.nextMan.mod; }
-  else if (stillSince && now - stillSince > 30000 && !st.nav) state = "sleepy";
+  else if (stillSince && now - stillSince > 30000 && !st.nav && now > moesAwakeUntil) state = "sleepy";
   if (state !== lastMoesState || (state === "point" && dir !== lastMoesDir)) {
     var line = moesLine(state, dir);
     if (line && (state !== "point" || lastMoesState !== "point" || dir !== lastMoesDir)) moes.say(line, state === "sleepy" ? 2500 : state === "point" ? 1800 : 1600);
