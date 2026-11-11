@@ -18,6 +18,11 @@ window.NAVI_CFG = {
   photon: "https://photon.komoot.io/api/",
   nominatim: "https://nominatim.openstreetmap.org/search",
 
+  /* Gratis sleutels voor live verkeer. Je kunt ze ook in de app invullen (Instellingen).
+     TomTom: developer.tomtom.com  ·  HERE: platform.here.com */
+  tomtomKey: "",
+  hereKey: "",
+
   /* Firebase voor gedeelde flitsermeldingen. Vul hier dezelfde gegevens in als bij sprintje,
      dan zien beide apps elkaars meldingen. Leeg laten = meldingen alleen op je eigen telefoon. */
   firebase: window.__FBCFG || null

@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true }, load("set", {}));
+var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -107,7 +107,7 @@ function initMap() {
     center: last ? [last.lon, last.lat] : [5.29, 52.13], zoom: last ? 14 : 7, pitchWithRotate: true, maxPitch: 70
   });
   map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-  map.on("load", function () { mapReady = true; styleMap(); addLayers(); drawAll(); });
+  map.on("load", function () { mapReady = true; styleMap(); addLayers(); setFlowLayer(); drawAll(); });
   map.on("error", function (e) { if (!mapReady && e && e.error && /style|fetch/i.test(String(e.error.message))) toast("Kaartstijl niet bereikbaar.", true); });
   ["dragstart", "pitchstart", "rotatestart"].forEach(function (ev) {
     map.on(ev, function (e) { if (e.originalEvent && st.follow) { st.follow = false; $("recenter").hidden = !st.nav && !st.pos; } });
@@ -134,7 +134,7 @@ var CAMCOL = { vast: "#2f9bff", mobiel: "#ff4f8b", traject: "#14c3a8", roodlicht
 var TRAF = {
   afsluiting: { l: "Afsluiting", c: "#e0314f", pen: 360 }, ongeval: { l: "Ongeval", c: "#ff3d6e", pen: 300 },
   file: { l: "File", c: "#ff7a00", pen: 240 }, pech: { l: "Pechgeval", c: "#ff9a00", pen: 90 },
-  obstakel: { l: "Obstakel op de weg", c: "#ffb300", pen: 90 }, werk: { l: "Wegwerkzaamheden", c: "#d98a00", pen: 120 },
+  obstakel: { l: "Obstakel op de weg", c: "#ffb300", pen: 90 }, rijstrook: { l: "Rijstrook dicht", c: "#ff8a1f", pen: 60 }, werk: { l: "Wegwerkzaamheden", c: "#d98a00", pen: 120 },
   snelheid: { l: "Snelheidsmaatregel", c: "#2f7bff", pen: 0 }, weer: { l: "Weersomstandigheden", c: "#4a90c2", pen: 0 },
   evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
 };
@@ -387,9 +387,10 @@ function fetchRoutes(from, to, heading) {
 function scoreRoutes(routes) {
   var traf = activeTraffic();
   routes.forEach(function (r) {
-    r.traf = S.traffic ? N.pointsOnRoute(r, traf, 35) : [];
-    r.blocking = r.traf.filter(function (o) { return (TRAF[o.p.t] || {}).pen > 0; });
-    r.penalty = r.blocking.reduce(function (a, o) { return a + TRAF[o.p.t].pen; }, 0);
+    r.traf = S.traffic ? firstPerIncident(N.pointsOnRoute(r, traf, 35)) : [];
+    r.blocking = r.traf.filter(function (o) { return (TRAF[o.p.t] || {}).pen > 0 || o.p.delay > 60; });
+    r.delay = r.blocking.reduce(function (a, o) { return a + (o.p.delay || 0); }, 0);
+    r.penalty = r.blocking.reduce(function (a, o) { return a + (o.p.delay != null ? Math.min(1800, o.p.delay) : (TRAF[o.p.t] || TRAF.overig).pen); }, 0);
     r.score = r.duration + (S.avoid ? r.penalty : 0);
   });
   var fastest = 0, best = 0;
@@ -418,6 +419,10 @@ function chooseDest(d) {
     if (st.dest !== d) return;
     st.routes = routes; st.sel = scoreRoutes(routes);
     renderAlts(); drawRoutes(); fitRoutes();
+    fetchLive(routesBox(routes), true).then(function (changed) {
+      if (!changed || st.dest !== d || st.nav) return;
+      st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes();
+    });
   }).catch(function (e) {
     $("alts").innerHTML = '<div class="alt"><div class="t">Geen route</div><div class="d">' + esc(/abort/i.test(String(e)) ? "De routeplanner reageert niet." : "Probeer het opnieuw of kies een ander punt.") + "</div></div>";
   });
@@ -427,7 +432,7 @@ function renderAlts() {
     var tags = "";
     if (r.fastest) tags += '<span class="tag">Snelst</span> ';
     if (r.calm) tags += '<span class="tag">Minder drukte</span> ';
-    if (r.blocking.length) tags += '<span class="tag bad">' + r.blocking.length + (r.blocking.length === 1 ? " melding" : " meldingen") + "</span>";
+    if (r.blocking.length) tags += '<span class="tag bad">' + r.blocking.length + (r.blocking.length === 1 ? " melding" : " meldingen") + (r.delay >= 60 ? " · +" + Math.round(r.delay / 60) + " min" : "") + "</span>";
     return '<button class="alt' + (i === st.sel ? " sel" : "") + '" data-i="' + i + '"><div class="t">' + N.fmtDur(r.duration) + '</div><div class="d">' + N.fmtDist(r.distance) + " · aankomst " + hhmm(new Date(Date.now() + r.duration * 1000)) + "</div>" + tags + "</button>";
   }).join("");
   Array.prototype.forEach.call($("alts").querySelectorAll(".alt"), function (b) { b.onclick = function () { selectRoute(+b.dataset.i); }; });
@@ -609,17 +614,22 @@ function report(type) {
 /* ---------- verkeer (NDW) ---------- */
 var traffic = load("verkeer", null);
 function activeTraffic() {
-  if (!traffic || !S.traffic) return [];
+  if (!S.traffic) return [];
   var now = Date.now();
-  return (traffic.items || []).filter(function (x) { return !x.until || Date.parse(x.until) > now; });
+  var a = ((traffic && traffic.items) || []).concat(live.items);
+  return a.filter(function (x) { return !x.until || Date.parse(x.until) > now; });
 }
 function drawTraffic() {
-  setData("traffic", { type: "FeatureCollection", features: activeTraffic().map(function (x) {
+  setData("traffic", { type: "FeatureCollection", features: activeTraffic().filter(function (x) { return !x.tail; }).map(function (x) {
     return { type: "Feature", properties: { t: x.t, c: (TRAF[x.t] || TRAF.overig).c }, geometry: { type: "Point", coordinates: [x.lon, x.lat] } };
   }) });
 }
 function setTrafInfo() {
-  $("trafinfo").textContent = "Files, ongevallen en afsluitingen van het NDW." + (traffic ? " Bijgewerkt " + hhmm(new Date(traffic.updated * 1000)) + " (" + activeTraffic().length + " meldingen)." : " Nog niet geladen.");
+  $("trafinfo").textContent = "Files, ongevallen en afsluitingen van het NDW" + (KEYS.tomtom ? ", TomTom" : "") + (KEYS.here ? ", HERE" : "") + "." + (traffic ? " NDW bijgewerkt " + hhmm(new Date(traffic.updated * 1000)) + "." : "");
+  var ls = [];
+  if (KEYS.tomtom) ls.push("TomTom " + (live.ok.tomtom === false ? "werkt niet (sleutel?)" : live.ok.tomtom ? "verbonden" : "klaar"));
+  if (KEYS.here) ls.push("HERE " + (live.ok.here === false ? "werkt niet (sleutel?)" : live.ok.here ? "verbonden" : "klaar"));
+  $("liveinfo").textContent = ls.length ? ls.join(" · ") + (live.when ? " · bijgewerkt " + hhmm(new Date(live.when)) : "") + "." : "Vul een gratis sleutel in voor live files, ongevallen en drukte op de kaart.";
 }
 function loadTraffic() {
   var stamp = new Date().toISOString().slice(0, 15);
@@ -631,11 +641,107 @@ function loadTraffic() {
   }).catch(function () { setTrafInfo(); });
 }
 
+/* ---------- live verkeer: TomTom en HERE (gratis sleutels) ---------- */
+var KEYS = { tomtom: load("key_tomtom", CFG.tomtomKey || ""), here: load("key_here", CFG.hereKey || "") };
+var live = { items: [], when: 0, box: null, ok: {} };
+var TT_CAT = { 1: "ongeval", 2: "weer", 3: "obstakel", 4: "weer", 5: "weer", 6: "file", 7: "rijstrook", 8: "afsluiting", 9: "werk", 10: "weer", 11: "weer", 14: "pech" };
+var HERE_T = { accident: "ongeval", congestion: "file", construction: "werk", disabledVehicle: "pech", roadClosure: "afsluiting",
+  laneRestriction: "rijstrook", roadHazard: "obstakel", weather: "weer", plannedEvent: "evenement" };
+/* lange files als reeks punten (elke 250 m), zodat ze op de route gevonden worden */
+function samplePts(coords, base) {
+  var out = [], acc = 0;
+  coords.forEach(function (c, i) {
+    if (i) acc += N.distM(coords[i - 1][1], coords[i - 1][0], c[1], c[0]);
+    if (i === 0 || acc >= 250 || i === coords.length - 1) { out.push(Object.assign({}, base, { lat: c[1], lon: c[0], tail: out.length > 0 })); acc = 0; }
+  });
+  return out;
+}
+function firstPerIncident(list) { var seen = {}; return list.filter(function (o) { if (seen[o.p.id]) return false; seen[o.p.id] = 1; return true; }); }
+function routesBox(routes) {
+  var b = { w: 180, s: 90, e: -180, n: -90 };
+  routes.forEach(function (r) { r.coords.forEach(function (c) { b.w = Math.min(b.w, c[0]); b.e = Math.max(b.e, c[0]); b.s = Math.min(b.s, c[1]); b.n = Math.max(b.n, c[1]); }); });
+  return { w: b.w - 0.02, s: b.s - 0.02, e: b.e + 0.02, n: b.n + 0.02 };
+}
+/* grote gebieden opdelen in vakken van maximaal 1 x 1 graad (beide diensten hebben een maximum) */
+function boxCells(b) {
+  var cells = [];
+  for (var x = b.w; x < b.e; x += 1) for (var y = b.s; y < b.n; y += 1) cells.push({ w: x, s: y, e: Math.min(b.e, x + 1), n: Math.min(b.n, y + 1) });
+  return cells.slice(0, 8);
+}
+function ttFetch(c) {
+  var fields = "{incidents{type,geometry{type,coordinates},properties{id,iconCategory,magnitudeOfDelay,events{description},endTime,from,to,delay,roadNumbers}}}";
+  var u = "https://api.tomtom.com/traffic/services/5/incidentDetails?key=" + encodeURIComponent(KEYS.tomtom) + "&bbox=" + [c.w, c.s, c.e, c.n].map(function (v) { return v.toFixed(4); }).join(",") +
+    "&fields=" + encodeURIComponent(fields) + "&language=nl-NL&timeValidityFilter=present";
+  return fetchJson(u, 15000).then(function (d) {
+    var out = [];
+    (d.incidents || []).forEach(function (f) {
+      var p = f.properties || {}, g = f.geometry || {};
+      var coords = g.type === "Point" ? [g.coordinates] : (g.coordinates || []);
+      if (!coords.length) return;
+      var base = { id: "tt" + p.id, t: TT_CAT[p.iconCategory] || "overig", src: "TomTom", delay: p.delay || null, until: p.endTime || null,
+        desc: ((p.events || [])[0] || {}).description || "", road: (p.roadNumbers || []).join(", ") };
+      out = out.concat(samplePts(coords, base));
+    });
+    return out;
+  });
+}
+function hereFetch(c) {
+  var u = "https://data.traffic.hereapi.com/v7/incidents?in=bbox:" + [c.w, c.s, c.e, c.n].map(function (v) { return v.toFixed(4); }).join(",") +
+    "&locationReferencing=shape&lang=nl-NL&apiKey=" + encodeURIComponent(KEYS.here);
+  return fetchJson(u, 15000).then(function (d) {
+    var out = [];
+    (d.results || []).forEach(function (r) {
+      var det = r.incidentDetails || {}, coords = [];
+      (((r.location || {}).shape || {}).links || []).forEach(function (l) { (l.points || []).forEach(function (pt) { coords.push([pt.lng, pt.lat]); }); });
+      if (!coords.length) return;
+      var t = det.roadClosed ? "afsluiting" : (HERE_T[det.type] || "overig");
+      out = out.concat(samplePts(coords, { id: "here" + det.id, t: t, src: "HERE", until: det.endTime || null, desc: (det.description || {}).value || "" }));
+    });
+    return out;
+  });
+}
+/* haalt live meldingen op voor een gebied; geeft true als er iets veranderd is */
+function fetchLive(box, force) {
+  if (!S.traffic || (!KEYS.tomtom && !KEYS.here) || !box) return Promise.resolve(false);
+  if (!force && Date.now() - live.when < 3 * 60 * 1000) return Promise.resolve(false);
+  var cells = boxCells(box), jobs = [];
+  function run(name, fn) {
+    jobs.push(Promise.all(cells.map(fn)).then(function (parts) { live.ok[name] = true; return [].concat.apply([], parts); })
+      .catch(function () { live.ok[name] = false; return []; }));
+  }
+  if (KEYS.tomtom) run("tomtom", ttFetch);
+  if (KEYS.here) run("here", hereFetch);
+  return Promise.all(jobs).then(function (lists) {
+    var tt = lists[0] || [], hr = KEYS.tomtom ? (lists[1] || []) : lists[0] || [];
+    if (!KEYS.tomtom) tt = [];
+    /* dubbele meldingen (zelfde soort binnen 150 m) van HERE weglaten als TomTom hem al heeft */
+    var heads = tt.filter(function (x) { return !x.tail; });
+    var dupIds = {};
+    hr.forEach(function (x) { if (!x.tail && heads.some(function (y) { return y.t === x.t && N.distM(x.lat, x.lon, y.lat, y.lon) < 150; })) dupIds[x.id] = 1; });
+    live.items = tt.concat(hr.filter(function (x) { return !dupIds[x.id]; }));
+    live.when = Date.now(); live.box = box;
+    drawTraffic(); setTrafInfo(); if (st.nav) prepRouteWarnings();
+    return true;
+  });
+}
+
+/* drukte op de kaart: TomTom-verkeerstegels (groen/oranje/rood) */
+function setFlowLayer() {
+  if (!mapReady) return;
+  try { if (map.getLayer("flow")) map.removeLayer("flow"); if (map.getSource("flow")) map.removeSource("flow"); } catch (e) {}
+  if (!S.flow || !S.traffic) return;
+  var tiles = KEYS.tomtom ? ["https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?tileSize=256&thickness=10&key=" + encodeURIComponent(KEYS.tomtom)]
+    : KEYS.here ? ["https://traffic.maps.hereapi.com/v3/flow/mc/{z}/{x}/{y}/png?apiKey=" + encodeURIComponent(KEYS.here)] : null;
+  if (!tiles) return;
+  map.addSource("flow", { type: "raster", tiles: tiles, tileSize: 256, minzoom: 6, maxzoom: 18, attribution: KEYS.tomtom ? "Verkeer © TomTom" : "Verkeer © HERE" });
+  map.addLayer({ id: "flow", type: "raster", source: "flow", minzoom: 9, paint: { "raster-opacity": 0.85 } }, map.getLayer("alts-case") ? "alts-case" : undefined);
+}
+
 /* ---------- waarschuwingen ---------- */
 function prepRouteWarnings() {
   if (!st.route) return;
   st.routeCams = S.flits ? N.pointsOnRoute(st.route, allCams(), 30) : [];
-  st.routeTraf = S.traffic ? N.pointsOnRoute(st.route, activeTraffic().filter(function (x) { return (TRAF[x.t] || {}).pen > 0; }), 35) : [];
+  st.routeTraf = S.traffic ? firstPerIncident(N.pointsOnRoute(st.route, activeTraffic().filter(function (x) { return (TRAF[x.t] || {}).pen > 0 || x.delay > 60; }), 35)) : [];
 }
 var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
@@ -676,9 +782,10 @@ function checkWarnings() {
   }
   if (trafHit) {
     var tp = trafHit.p, tk = "t" + tp.id, tl = (TRAF[tp.t] || TRAF.overig).l;
-    showAlert("traffic", tl, "Over " + N.fmtDist(trafHit.d) + " op je route", ICON.warn, false);
+    var extra = tp.delay >= 60 ? " · +" + Math.round(tp.delay / 60) + " min" : "";
+    showAlert("traffic", tl, "Over " + N.fmtDist(trafHit.d) + " op je route" + extra + (tp.desc && tp.desc.toLowerCase() !== tl.toLowerCase() ? " · " + tp.desc : ""), ICON.warn, false);
     alertFor = tk; $("limit").hidden = true; $("speed").classList.remove("over");
-    if (!st.warned[tk]) { st.warned[tk] = true; say("Let op, " + lc(tl) + " over " + N.sayDist(trafHit.d)); }
+    if (!st.warned[tk]) { st.warned[tk] = true; say("Let op, " + lc(tl) + " over " + N.sayDist(trafHit.d) + (tp.delay >= 120 ? ", ongeveer " + Math.round(tp.delay / 60) + " minuten vertraging" : "")); }
     return;
   }
   if (alertFor) hideAlert();
@@ -742,6 +849,15 @@ function wire() {
   $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); };
   $("s-flits").checked = S.flits; $("s-flits").onchange = function () { S.flits = this.checked; saveS(); drawCams(); prepRouteWarnings(); if (!S.flits) hideAlert(); };
   $("s-traffic").checked = S.traffic; $("s-traffic").onchange = function () { S.traffic = this.checked; saveS(); drawTraffic(); prepRouteWarnings(); };
+  $("s-flow").checked = S.flow; $("s-flow").onchange = function () { S.flow = this.checked; saveS(); setFlowLayer(); };
+  $("k-tomtom").value = KEYS.tomtom; $("k-here").value = KEYS.here;
+  $("savekeys").onclick = function () {
+    KEYS.tomtom = $("k-tomtom").value.trim(); KEYS.here = $("k-here").value.trim();
+    store("key_tomtom", KEYS.tomtom); store("key_here", KEYS.here); live.ok = {}; live.items = [];
+    setFlowLayer(); setTrafInfo();
+    var box = st.routes.length ? routesBox(st.routes) : (map ? (function () { var b = map.getBounds(); return { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }; })() : null);
+    fetchLive(box, true).then(function () { setTrafInfo(); toast(live.ok.tomtom === false || live.ok.here === false ? "Een sleutel werkt niet. Controleer hem." : "Opgeslagen."); });
+  };
   $("s-avoid").checked = S.avoid; $("s-avoid").onchange = function () { S.avoid = this.checked; saveS(); if (st.routes.length && !st.nav) { st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes(); } };
   $("clearmine").onclick = function () { mine = []; store("mine", mine); drawCams(); setFlitsInfo(); toast("Je meldingen zijn gewist."); };
   $("simulate").onclick = startSim;
@@ -763,6 +879,7 @@ function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk =
 wire(); initMap(); setFlitsInfo(); setTrafInfo();
 loadFlitsers(); loadTraffic(); fbInit(); startGps();
 setInterval(loadTraffic, 10 * 60 * 1000);
+setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]), false); }, 5 * 60 * 1000);
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */

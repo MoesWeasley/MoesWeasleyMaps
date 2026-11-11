@@ -10,6 +10,7 @@ Helemaal gratis: geen API-sleutels nodig.
 | Adres zoeken | Photon (reserve: Nominatim) |
 | Flitsers | OpenStreetMap, elke nacht via GitHub (`flitsers.py`) + eigen meldingen |
 | Files, ongevallen, afsluitingen | NDW open data, elk uur via GitHub (`ndw.py`) |
+| Live files, ongevallen, drukte op de kaart | TomTom Traffic API en HERE Traffic API (optioneel, gratis sleutel) |
 | Gedeelde flitsermeldingen | Firebase (optioneel, zelfde project als sprintje) |
 
 ## Wat de app doet
@@ -46,6 +47,17 @@ npm run icons
 npm run sync
 npm run open
 ```
+
+## Live verkeer met TomTom en HERE (optioneel)
+
+Beide zijn gratis zonder creditcard. Maak een sleutel aan en plak hem in de app bij Instellingen > Live verkeer
+(of zet hem in `config.js` bij `tomtomKey` / `hereKey`).
+
+- TomTom: developer.tomtom.com > account > API key. Gratis: 2.500 verzoeken + 50.000 kaarttegels per dag.
+- HERE: platform.here.com > Access Manager > API key. Gratis plan: 1.000 verzoeken per dag.
+
+De app vraagt meldingen op bij het kiezen van een route en daarna elke 5 minuten tijdens het rijden.
+Let op: een sleutel in de app is uit de APK te halen. Gebruik daarom een gratis account zonder betaalgegevens.
 
 ## Gedeelde flitsermeldingen (optioneel)
 
