@@ -48,6 +48,10 @@ def handler(r):
     if 'interpreter' in u:
         CTL.setdefault("overpass", 0); CTL["overpass"] += 1
         if CTL.get("osm") == "fail": return r.abort()
+        from urllib.parse import unquote
+        if 'traffic_signals' in unquote(u):
+            CTL.setdefault("sigq", 0); CTL["sigq"] += 1
+            return r.fulfill(json={"elements": [{"type": "node", "id": 1, "lat": B[1], "lon": B[0]}, {"type": "node", "id": 2, "lat": B[1] + 0.00005, "lon": B[0]}, {"type": "node", "id": 3, "lat": C[1], "lon": C[0]}]})
         W = lambda tags, pts: {"type": "way", "tags": tags, "geometry": [{"lat": p[1], "lon": p[0]} for p in pts]}
         return r.fulfill(json={"elements": [W({"highway": "secondary", "name": "Damrak", "maxspeed": "50"}, [A, [4.9, 52.3745], B]),
             W({"highway": "residential", "name": "Prins Hendrikkade", "maxspeed": "30"}, [B, C]),

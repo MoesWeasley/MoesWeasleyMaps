@@ -25,7 +25,9 @@ with sync_playwright() as p:
         gps(lon,lat)
         bd=pg.inner_text('#bdist'); bt=pg.inner_text('#btext')
         if i%15==0: log.append((i,bd,bt,pg.inner_text('#spd'),pg.inner_text('#remd')))
-        if a.vis('#balert'): seen.add('alert:'+pg.inner_text('#batitle'))
+        if a.vis('#balert'):
+            seen.add('alert:'+pg.inner_text('#batitle'))
+            if not getattr(a,'shotA',0): a.shot('d-alert'); a.shotA=1
         if i==40: a.shot('d1-onderweg')
     for l in log: print('  ',l)
     print('   gezegd:',a.ev("window.__said"))

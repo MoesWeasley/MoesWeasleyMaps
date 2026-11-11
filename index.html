@@ -376,6 +376,8 @@ body.guide #then{display:flex}
 /* buiten navigeren: kleine losse melding bovenin */
 #alert{left:50%;right:auto;transform:translateX(-50%);max-width:92vw;padding:8px 14px 8px 8px;gap:10px;border-radius:999px}
 #alert .ai{width:36px;height:36px}#alert .ai svg{width:22px;height:22px}
+#alert .ai.badge,#balert .ai.badge{background:none;border:0;filter:drop-shadow(0 2px 4px rgba(30,20,80,.25))}
+#alert .ai.badge svg,#balert .ai.badge svg{width:100%;height:100%}
 #alert b{font-size:16px}#alert span{font-size:13px}
 @keyframes pop{from{opacity:0;transform:translateX(-50%) scale(.92)}}
 @keyframes pulse{50%{transform:translateX(-50%) scale(1.03)}}
@@ -510,6 +512,7 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
   <div class="set" style="display:block"><span>3D-kaart (Mapbox)<small id="mapboxinfo">Met een gratis Mapbox-sleutel: echte 3D-bomen, belichte gebouwen en monumenten. Zonder sleutel: de gratis open kaart.</small></span>
     <input class="key" id="k-mapbox" placeholder="Mapbox-sleutel (pk.…)" autocomplete="off" spellcheck="false">
     <button class="small" id="savemapbox" style="margin-top:8px">Opslaan</button></div>
+  <label class="set"><span>Verkeerslichten op de kaart<small>Stoplichten uit OpenStreetMap, zichtbaar als je inzoomt.</small></span><input type="checkbox" class="sw" id="s-signals"></label>
   <label class="set"><span>Drukte op de kaart<small>Wegen kleuren groen, oranje of rood naar hoe druk het is (TomTom of HERE).</small></span><input type="checkbox" class="sw" id="s-flow"></label>
   <div class="set" style="display:block"><span>Live verkeer (TomTom / HERE)<small id="liveinfo">Vul een gratis sleutel in voor live files, ongevallen en drukte op de kaart.</small></span>
     <input class="key" id="k-tomtom" placeholder="TomTom API-sleutel" autocomplete="off" spellcheck="false">

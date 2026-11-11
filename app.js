@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto" }, load("set", {}));
+var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto", signals: true }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -287,6 +287,64 @@ var TRAF = {
   snelheid: { l: "Snelheidsmaatregel", c: "#2f7bff", pen: 0 }, weer: { l: "Weersomstandigheden", c: "#4a90c2", pen: 0 },
   evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
 };
+/* ---------- kaarticonen in de stijl van de app: glazen tegel met fel verloop en wit symbool ---------- */
+var W = "#fff";
+function carG(x, y, s, cut) { /* wit autootje van opzij; wielen uitgespaard in de tegelkleur */
+  return '<g transform="translate(' + x + " " + y + ") scale(" + s + ')"><path d="M-11 2h22v-5l-3.5-6h-15l-3.5 6z" fill="' + W + '"/><circle cx="-6" cy="3" r="3" fill="' + W + '" stroke="' + cut + '" stroke-width="1.6"/><circle cx="6" cy="3" r="3" fill="' + W + '" stroke="' + cut + '" stroke-width="1.6"/></g>';
+}
+function excl() { return '<rect x="29" y="17" width="6" height="19" rx="3" fill="' + W + '"/><circle cx="32" cy="43.5" r="3.6" fill="' + W + '"/>'; }
+var TILE = { /* verloop per soort */
+  werk: ["#ffb02e", "#ff6a3d"], ongeval: ["#ff4f7b", "#e0234f"], file: ["#ff8a3d", "#ff3d6e"], afsluiting: ["#ff3d5a", "#c2185b"],
+  pech: ["#ffc23d", "#ff8a1f"], obstakel: ["#ffb300", "#ff7a00"], rijstrook: ["#ff9a3c", "#ff5c8a"], werk2: null,
+  snelheid: ["#4f8bff", "#7b5cff"], weer: ["#49bfff", "#5b7cff"], evenement: ["#b15cff", "#7b5cff"], overig: ["#8f8fff", "#7b5cff"],
+  vast: ["#3db4ff", "#6a5cff"], mobiel: ["#ff5ca8", "#ff7a3d"], traject: ["#19d3b0", "#2f9bff"], roodlicht: ["#ff4f5a", "#ff9a3c"], cam_overig: ["#9a7bff", "#c24dff"]
+};
+var PICTO = {
+  werk: function () { return '<circle cx="26" cy="20" r="4" fill="' + W + '"/><path d="M27 25l3 11M30 36l-4.5 8M30 36l4.5 8M28 29l10 3M38 32l4 9" stroke="' + W + '" stroke-width="3.6" stroke-linecap="round" fill="none"/><path d="M35 46q6-7 12 0z" fill="' + W + '"/>'; },
+  ongeval: function (c) { return carG(25, 40, 0.85, c) + '<g transform="rotate(-28 41 34)">' + carG(41, 36, 0.75, c) + '</g><path d="M33 18l2 4 4-2-1 4 4 1-4 2 2 4-4-1-1 4-2-4-3 2 1-4-4-1 4-2-2-3z" fill="#fff36b"/>'; },
+  file: function (c) { return carG(21, 45, 0.72, c) + carG(32, 36, 0.72, c) + carG(43, 27, 0.72, c); },
+  pech: function (c) { return carG(29, 41, 1.05, c) + '<path d="M42 15l2.4 2.4-5.4 5.4 1.8 1.8-2.4 2.4-6-6 2.4-2.4 1.8 1.8z" fill="' + W + '"/>'; },
+  obstakel: excl, overig: excl, snelheid: function () { return '<path d="M17 40a15 15 0 0130 0" stroke="' + W + '" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M32 40l8-10" stroke="' + W + '" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="40" r="3.4" fill="' + W + '"/>'; },
+  evenement: function () { return '<path d="M24 47V17M24 18h17l-4.5 6 4.5 6H24" stroke="' + W + '" stroke-width="3.4" fill="' + W + '" stroke-linejoin="round" stroke-linecap="round"/>'; },
+  rijstrook: function () { return '<path d="M24 46V18M40 46V18" stroke="' + W + '" stroke-width="4" stroke-linecap="round"/><path d="M35.5 23l9 9M44.5 23l-9 9" stroke="#fff36b" stroke-width="3.6" stroke-linecap="round"/>'; },
+  weer: function () { return '<path d="M21 34a7 7 0 010-14 9 9 0 0117-2 7 7 0 015 16z" fill="' + W + '"/><path d="M24 39l-2.4 6M32 39l-2.4 6M40 39l-2.4 6" stroke="' + W + '" stroke-width="3" stroke-linecap="round"/>'; },
+  afsluiting: function () { return '<circle cx="32" cy="32" r="15" fill="none" stroke="' + W + '" stroke-width="4"/><rect x="22" y="29" width="20" height="6" rx="3" fill="' + W + '"/>'; }
+};
+/* glazen tegel: verloop, witte rand, glans bovenaan, zachte schaduw */
+function tile(id, c, inner, round) {
+  var shape = round ? '<circle cx="32" cy="32" r="25"/>' : '<rect x="7" y="7" width="50" height="50" rx="17"/>';
+  var sh = shape.replace("/>", ' fill="url(#g' + id + ')" stroke="#fff" stroke-width="3.5"/>');
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g' + id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c[0] + '"/><stop offset="1" stop-color="' + c[1] + '"/></linearGradient>' +
+    '<filter id="s' + id + '" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.4" flood-color="#3b1f8a" flood-opacity=".35"/></filter></defs>' +
+    '<g filter="url(#s' + id + ')">' + sh + "</g>" +
+    '<path d="' + (round ? "M12 27a20 20 0 0140 0q-20 5-40 0z" : "M10 22q0-12 13-12h18q13 0 13 12q-22 6-44 0z") + '" fill="#fff" opacity=".22"/>' + inner + "</svg>";
+}
+function signSVG(t) { var c = TILE[t] || TILE.overig; return tile("i" + t, c, (PICTO[t] || PICTO.overig)(c[1]), t === "afsluiting"); }
+function camSVG(type) {
+  var c = TILE[type] || TILE.cam_overig, k = c[1];
+  return tile("c" + type, c, '<rect x="15" y="24" width="25" height="17" rx="4" fill="#fff"/><circle cx="27.5" cy="32.5" r="5.2" fill="' + k + '"/><circle cx="27.5" cy="32.5" r="2.2" fill="#fff"/>' +
+    '<path d="M40 28l9-4v17l-9-4z" fill="#fff"/><path d="M22 13l-3.5 7h4.5l-2.5 7 7-9h-4.5l2.5-5z" fill="#fff36b"/>' +
+    (type === "traject" ? '<path d="M18 47h28M41 44l5 3-5 3" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' : ""), true);
+}
+var TL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="gtl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b3a8c"/><stop offset="1" stop-color="#241d52"/></linearGradient>' +
+  '<filter id="stl" x="-40%" y="-20%" width="180%" height="140%"><feDropShadow dx="0" dy="2.5" stdDeviation="2.2" flood-color="#3b1f8a" flood-opacity=".35"/></filter>' +
+  '<radialGradient id="glr"><stop offset=".72" stop-color="#ff5c6e"/><stop offset="1" stop-color="#ff5c6e" stop-opacity="0"/></radialGradient>' +
+  '<radialGradient id="gly"><stop offset=".72" stop-color="#ffd23f"/><stop offset="1" stop-color="#ffd23f" stop-opacity="0"/></radialGradient>' +
+  '<radialGradient id="glg"><stop offset=".72" stop-color="#2ee5a0"/><stop offset="1" stop-color="#2ee5a0" stop-opacity="0"/></radialGradient></defs>' +
+  '<rect x="20" y="5" width="24" height="54" rx="12" fill="url(#gtl)" stroke="#fff" stroke-width="3.5" filter="url(#stl)"/>' +
+  '<path d="M23 16q0-8 9-8t9 8q-9 3-18 0z" fill="#fff" opacity=".2"/>' +
+  '<circle cx="32" cy="18" r="7.5" fill="url(#glr)"/><circle cx="32" cy="32" r="7.5" fill="url(#gly)"/><circle cx="32" cy="46" r="7.5" fill="url(#glg)"/></svg>';
+function mapIcons() {
+  var all = { tl: TL_SVG };
+  Object.keys(CAMCOL).forEach(function (k) { all["cam-" + k] = camSVG(k); });
+  Object.keys(TRAF).forEach(function (k) { all["inc-" + k] = signSVG(k); });
+  Object.keys(all).forEach(function (name) {
+    var img = new Image(64, 64);
+    img.onload = function () { try { if (!map.hasImage || !map.hasImage(name)) map.addImage(name, img, { pixelRatio: 2 }); } catch (e) {} };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(all[name]);
+  });
+}
+
 /* ---------- 3D-bomen op de gratis kaart: stam + ronde kruin als 3D-blokjes ---------- */
 var TREE_COLS = ["#2fb86a", "#3cc777", "#25a35c", "#55d98c", "#2ec27e"];
 function treeShape(lon, lat, r, n) { /* veelhoek rond een punt, r in meters */
@@ -359,11 +417,16 @@ function addLayers() {
     paint: { "line-color": ["match", ["get", "l"], "moderate", "#ff9f1c", "heavy", "#ff3d5a", "severe", "#b5003c", "#ff9f1c"], "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 9] } }, before);
   map.addLayer({ id: "traffic-glow", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 10, 15, 24], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
   map.addLayer({ id: "cams-glow", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 10, 15, 26], "circle-color": ["get", "c"], "circle-opacity": 0.35, "circle-blur": 0.8 } });
-  map.addLayer({ id: "traffic-c", type: "circle", source: "traffic", minzoom: 8, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 15, 9], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
-  map.addLayer({ id: "cams-c", type: "circle", source: "cams", minzoom: 9, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 15, 10], "circle-color": ["get", "c"], "circle-stroke-color": "#fff", "circle-stroke-width": 2.5 } });
+  map.addSource("signals", { type: "geojson", data: EMPTY });
+  map.addLayer({ id: "signals-i", type: "symbol", source: "signals", minzoom: 14, layout: { "icon-image": "tl", "icon-size": ["interpolate", ["linear"], ["zoom"], 14, 0.38, 17, 0.62], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  map.addLayer({ id: "traffic-i", type: "symbol", source: "traffic", minzoom: 8, layout: { "icon-image": ["get", "icon"], "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.45, 15, 0.85], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  map.addLayer({ id: "cams-i", type: "symbol", source: "cams", minzoom: 9, layout: { "icon-image": ["get", "icon"], "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.45, 15, 0.85], "icon-allow-overlap": true, "icon-ignore-placement": true } });
+  mapIcons();
+  map.on("moveend", function () { clearTimeout(sigT); sigT = setTimeout(loadSignals, 400); }); setTimeout(loadSignals, 1200);
+  /* oude bolletjes vervangen door iconen */
   map.on("click", "alts-line", function (e) { var f = e.features && e.features[0]; if (f && !st.nav) selectRoute(f.properties.i); });
-  map.on("click", "cams-c", function (e) { var p = e.features[0].properties; toast(camLabel(p.type) + (p.max ? " · " + p.max + " km/u" : "") + (p.own ? " · jouw melding" : p.community ? " · gemeld" : "")); });
-  map.on("click", "traffic-c", function (e) { var p = e.features[0].properties; toast((TRAF[p.t] || TRAF.overig).l); });
+  map.on("click", "cams-i", function (e) { var p = e.features[0].properties; toast(camLabel(p.type) + (p.max ? " · " + p.max + " km/u" : "") + (p.own ? " · jouw melding" : p.community ? " · gemeld" : "")); });
+  map.on("click", "traffic-i", function (e) { var p = e.features[0].properties; toast((TRAF[p.t] || TRAF.overig).l + (p.desc && p.desc.toLowerCase() !== (TRAF[p.t] || TRAF.overig).l.toLowerCase() ? " · " + p.desc : "")); });
 }
 /* gebouwen: hoe hoger, hoe blauwer (roze → paars → blauw) */
 /* kleurenpaletten voor dag en nacht */
@@ -1150,7 +1213,7 @@ function allCams() {
 function drawCams() {
   if (!S.flits) { setData("cams", EMPTY); return; }
   setData("cams", { type: "FeatureCollection", features: allCams().map(function (c) {
-    return { type: "Feature", properties: { type: c.type, max: c.max || 0, own: !!c.own, community: !!c.community, c: CAMCOL[c.type] || CAMCOL.overig }, geometry: { type: "Point", coordinates: [c.lon, c.lat] } };
+    return { type: "Feature", properties: { type: c.type, icon: "cam-" + (CAMCOL[c.type] ? c.type : "overig"), max: c.max || 0, own: !!c.own, community: !!c.community, c: CAMCOL[c.type] || CAMCOL.overig }, geometry: { type: "Point", coordinates: [c.lon, c.lat] } };
   }) });
 }
 function setFlitsInfo() {
@@ -1184,7 +1247,7 @@ function activeTraffic() {
 }
 function drawTraffic() {
   setData("traffic", { type: "FeatureCollection", features: activeTraffic().filter(function (x) { return !x.tail; }).map(function (x) {
-    return { type: "Feature", properties: { t: x.t, c: (TRAF[x.t] || TRAF.overig).c }, geometry: { type: "Point", coordinates: [x.lon, x.lat] } };
+    return { type: "Feature", properties: { t: x.t, icon: "inc-" + (TRAF[x.t] ? x.t : "overig"), desc: x.desc || "", c: (TRAF[x.t] || TRAF.overig).c }, geometry: { type: "Point", coordinates: [x.lon, x.lat] } };
   }) });
 }
 function setTrafInfo() {
@@ -1310,9 +1373,10 @@ var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
   var inBar = st.nav, a = $(inBar ? "balert" : "alert");
   $(inBar ? "alert" : "balert").hidden = true;
-  a.className = (kind === "traffic" ? "traffic" : kind === "hulp" ? "hulp" : "") + (pulse ? " pulse" : "");
+  a.className = (/^traffic/.test(kind) ? "traffic" : kind === "hulp" ? "hulp" : "") + (pulse ? " pulse" : "");
   $(inBar ? "batitle" : "atitle").textContent = title; $(inBar ? "batext" : "atext").textContent = text;
   var ic = $(inBar ? "baicon" : "aicon"); if (ic.dataset.k !== kind) { ic.innerHTML = icon; ic.dataset.k = kind; }
+  ic.classList.toggle("badge", /^(cam|traffic)/.test(kind)); /* flitser- en verkeersbord-icoon vult het rondje helemaal */
   a.hidden = false;
   setTimeout(updateMoes, 0);
 }
@@ -1408,6 +1472,37 @@ function osmLimit() {
   st.osmRoad = m ? (m.way.tags.name || m.way.tags.ref || "") : "";
 }
 (function () { var c = load("osmways", null); if (c && c.ways) { osm.ways = c.ways; osm.at = c.at; osm.t = c.t; } })();
+
+/* ---------- verkeerslichten uit OpenStreetMap (per vak van ~2 km, alleen ingezoomd) ---------- */
+var sig = { cells: {}, nodes: {}, busy: false, fail: 0, nextTry: 0 }, sigT = null, SIGC = 0.02;
+function drawSignals() {
+  var f = [];
+  if (S.signals) Object.keys(sig.nodes).forEach(function (k) { var n = sig.nodes[k]; f.push({ type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [n[0], n[1]] } }); });
+  setData("signals", { type: "FeatureCollection", features: f });
+}
+function loadSignals() {
+  if (!mapReady || !S.signals || sig.busy || Date.now() < sig.nextTry || map.getZoom() < 14 || !map.getBounds || !OVERPASS.length) return;
+  var b = map.getBounds(), w = b.getWest(), s = b.getSouth(), e = b.getEast(), n = b.getNorth(), need = [];
+  for (var x = Math.floor(w / SIGC); x <= Math.floor(e / SIGC); x++) for (var y = Math.floor(s / SIGC); y <= Math.floor(n / SIGC); y++) if (!sig.cells[x + "," + y]) need.push([x, y]);
+  if (!need.length || need.length > 16) return;
+  var bx = [Infinity, Infinity, -Infinity, -Infinity];
+  need.forEach(function (c) { bx[0] = Math.min(bx[0], c[1] * SIGC); bx[1] = Math.min(bx[1], c[0] * SIGC); bx[2] = Math.max(bx[2], (c[1] + 1) * SIGC); bx[3] = Math.max(bx[3], (c[0] + 1) * SIGC); });
+  var bb = bx.map(function (v) { return v.toFixed(4); }).join(",");
+  var q = "[out:json][timeout:20];(node[highway=traffic_signals](" + bb + ");node[crossing=traffic_signals](" + bb + "););out;";
+  sig.busy = true;
+  firstOk(OVERPASS.map(function (u) { return u + "?data=" + encodeURIComponent(q); }), 25000).then(function (d) {
+    need.forEach(function (c) { sig.cells[c[0] + "," + c[1]] = 1; });
+    var placed = Object.keys(sig.nodes).map(function (k) { return sig.nodes[k]; });
+    (d.elements || []).forEach(function (el) {
+      if (el.lat == null) return;
+      /* lampen die vlak naast elkaar staan (zelfde kruispunt) als één tonen */
+      if (placed.some(function (p) { return N.distM(p[1], p[0], el.lat, el.lon) < 14; })) return;
+      var v = [el.lon, el.lat]; sig.nodes[el.id] = v; placed.push(v);
+    });
+    sig.fail = 0; drawSignals();
+  }).catch(function () { sig.fail++; sig.nextTry = Date.now() + Math.min(120000, 15000 * sig.fail); })
+    .then(function () { sig.busy = false; });
+}
 
 /* ---------- pauzeherinnering na 2 uur rijden ---------- */
 var driving = { since: 0, stopAt: 0, nextRemind: 0 };
@@ -1640,7 +1735,7 @@ function checkWarnings() {
     var c = camHit.p, key = "c" + c.id;
     var txt = N.fmtDist(camHit.d) + " · " + camLabel(c.type) + (c.max ? " · " + c.max + " km/u" : "") + (c.own ? " · jouw melding" : c.community ? " · gemeld" : "");
     var over = c.max && kmh > c.max + 2;
-    showAlert("cam", c.type === "traject" ? "Let op trajectcontrole" : "Let op flitser", txt, ICON.cam, over);
+    showAlert("cam" + c.type, c.type === "traject" ? "Let op trajectcontrole" : "Let op flitser", txt, camSVG(c.type), over);
     alertFor = key; st.camMax = c.max || null; updateLimit();
     if (!st.warned[key]) {
       st.warned[key] = true; vibrate();
@@ -1651,7 +1746,7 @@ function checkWarnings() {
   if (trafHit) {
     var tp = trafHit.p, tk = "t" + tp.id, tl = (TRAF[tp.t] || TRAF.overig).l;
     var extra = tp.delay >= 60 ? " · +" + Math.round(tp.delay / 60) + " min" : "";
-    showAlert("traffic", tl, "Over " + N.fmtDist(trafHit.d) + " op je route" + extra + (tp.desc && tp.desc.toLowerCase() !== tl.toLowerCase() ? " · " + tp.desc : ""), ICON.warn, false);
+    showAlert("traffic" + tp.t, tl, "Over " + N.fmtDist(trafHit.d) + " op je route" + extra + (tp.desc && tp.desc.toLowerCase() !== tl.toLowerCase() ? " · " + tp.desc : ""), signSVG(TRAF[tp.t] ? tp.t : "overig"), false);
     alertFor = tk; st.camMax = null; updateLimit();
     if (!st.warned[tk]) { st.warned[tk] = true; say("Let op, " + lc(tl) + " over " + N.sayDist(trafHit.d) + (tp.delay >= 120 ? ", ongeveer " + Math.round(tp.delay / 60) + " minuten vertraging" : "")); }
     return;
@@ -1717,6 +1812,7 @@ function wire() {
   $("s-voice").onchange = function () { S.voice = this.checked; saveS(); setMuteIcons(); if (!S.voice && window.speechSynthesis) speechSynthesis.cancel(); if (!S.voice && NATIVE && PL.TextToSpeech) { try { PL.TextToSpeech.stop(); } catch (e) {} } };
   $("s-flits").checked = S.flits; $("s-flits").onchange = function () { S.flits = this.checked; saveS(); drawCams(); prepRouteWarnings(); if (!S.flits) hideAlert(); };
   $("s-traffic").checked = S.traffic; $("s-traffic").onchange = function () { S.traffic = this.checked; saveS(); drawTraffic(); prepRouteWarnings(); };
+  $("s-signals").checked = S.signals; $("s-signals").onchange = function () { S.signals = this.checked; saveS(); drawSignals(); loadSignals(); };
   $("s-flow").checked = S.flow; $("s-flow").onchange = function () { S.flow = this.checked; saveS(); setFlowLayer(); };
   $("k-tomtom").value = KEYS.tomtom; $("k-here").value = KEYS.here; $("k-mapbox").value = MAPBOX_TOKEN;
   $("savemapbox").onclick = function () {
@@ -1808,5 +1904,5 @@ setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */
-window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG, moes: function () { return moes; }, moesTap: moesTap };
+window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG, moes: function () { return moes; }, icons: function () { return { cam: camSVG, sign: signSVG, tl: TL_SVG, signals: sig }; }, moesTap: moesTap };
 })();
