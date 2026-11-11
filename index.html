@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#7b5cff">
+<title>MoesWeasley Maps</title>
+<link rel="stylesheet" href="lib/maplibre-gl.css" onerror="this.onerror=null;this.href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'">
+<style>
+:root{
+  --ink:#16173d;--mute:#5d6290;--bg:#f4f3ff;--card:#ffffff;--hair:rgba(22,23,61,.12);
+  --p1:#7b5cff;--p2:#ff4fa3;--p3:#ff9a3c;--go:#14c38e;--err:#ef3c5a;--warn:#ff9a00;--blue:#2f7bff;
+  --grad:linear-gradient(120deg,#7b5cff 0%,#c24dff 45%,#ff4fa3 75%,#ff9a3c 100%);
+  --shadow:0 6px 24px rgba(60,40,140,.22);--r:20px;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;color:inherit}
+[hidden]{display:none!important}
+#map{position:fixed;inset:0}
+.maplibregl-ctrl-attrib{font-size:10px}
+.maplibregl-ctrl-bottom-right{bottom:calc(var(--sb) + 4px)}
+
+/* ---- zoekbalk ---- */
+#top{position:fixed;left:12px;right:12px;top:calc(var(--st) + 12px);z-index:5}
+.search{display:flex;align-items:center;gap:6px;background:var(--card);border-radius:999px;box-shadow:var(--shadow);padding:6px 6px 6px 16px}
+.search .dot{width:12px;height:12px;border-radius:50%;background:var(--grad);flex:none}
+.search input{flex:1;border:0;outline:0;background:transparent;padding:10px 4px;font-size:17px;min-width:0}
+.iconbtn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;flex:none}
+.iconbtn svg{width:24px;height:24px}
+.iconbtn:active{background:rgba(123,92,255,.12)}
+#results{margin-top:8px;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);max-height:60vh;overflow:auto}
+.res{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--hair);width:100%;text-align:left}
+.res:first-child{border-top:0}
+.res .pin{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;background:var(--grad)}
+.res .pin.recent{background:#e9e5ff;color:var(--p1)}
+.res b{display:block;font-weight:650}
+.res small{color:var(--mute)}
+.reshead{padding:10px 16px 4px;font-size:13px;color:var(--mute);font-weight:600;letter-spacing:.02em}
+
+/* ---- knoppen rechts ---- */
+#fabs{position:fixed;right:12px;bottom:calc(var(--sb) + 24px);display:flex;flex-direction:column;gap:12px;z-index:4}
+.fab{width:56px;height:56px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center}
+.fab svg{width:26px;height:26px}
+.fab.report{background:var(--grad);color:#fff}
+.fab.active{color:var(--p1)}
+body.nav #fabs{bottom:calc(var(--sb) + 112px)}
+body.sheet-open #fabs{display:none}
+
+/* ---- onderblad ---- */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -6px 30px rgba(60,40,140,.25);padding:10px 16px calc(var(--sb) + 16px);max-height:80vh;overflow:auto;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--hair);margin:0 auto 10px}
+.sheet h2{margin:2px 0 4px;font-size:21px}
+.sheet .sub{color:var(--mute);margin:0 0 12px;font-size:14px}
+.alts{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 12px;margin:0 -2px}
+.alt{flex:1 0 140px;border:2px solid var(--hair);border-radius:16px;padding:10px 12px;text-align:left}
+.alt.sel{border-color:var(--p1);background:#f3f0ff}
+.alt .t{font-size:22px;font-weight:750}
+.alt .d{color:var(--mute);font-size:14px}
+.tag{display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 8px;margin-top:6px;background:#e9fbf4;color:#0b8a63}
+.tag.bad{background:#fff1e3;color:#b55d00}
+.row{display:flex;gap:10px}
+.big{flex:1;border-radius:16px;padding:15px;font-weight:700;font-size:17px;text-align:center}
+.big.go{background:var(--grad);color:#fff;box-shadow:0 6px 18px rgba(194,77,255,.35)}
+.big.ghost{background:#efedff;color:var(--p1)}
+.big.stop{background:var(--err);color:#fff}
+.set{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--hair)}
+.set small{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+.sw{appearance:none;-webkit-appearance:none;width:52px;height:32px;border-radius:16px;background:#d8d6ea;position:relative;flex:none;transition:.2s;margin:0}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);transition:.2s}
+.sw:checked{background:var(--p1)}
+.sw:checked::after{left:23px}
+.small{padding:8px 14px;border-radius:999px;background:#efedff;color:var(--p1);font-weight:650;font-size:14px}
+.types{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:6px 0 14px}
+.type{border-radius:18px;padding:16px 6px;color:#fff;font-weight:700;font-size:14px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.type svg{width:30px;height:30px}
+
+/* ---- navigatie ---- */
+#banner{position:fixed;left:10px;right:10px;top:calc(var(--st) + 10px);z-index:6;border-radius:22px;background:var(--grad);color:#fff;box-shadow:var(--shadow);padding:12px 14px;display:flex;gap:12px;align-items:center}
+#banner .ic{width:64px;height:64px;flex:none;border-radius:16px;background:rgba(255,255,255,.18);display:grid;place-items:center}
+#banner .ic svg{width:52px;height:52px}
+#bdist{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.01em}
+#btext{font-size:17px;font-weight:600;opacity:.97}
+#broad{font-size:14px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#then{position:fixed;left:18px;top:calc(var(--st) + 112px);z-index:6;background:#4b2fd6;color:#fff;border-radius:0 0 14px 14px;padding:4px 12px 6px;font-size:14px;font-weight:600;display:flex;gap:6px;align-items:center}
+#then svg{width:20px;height:20px}
+#navbar{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -6px 24px rgba(60,40,140,.2);padding:12px 14px calc(var(--sb) + 12px);display:flex;align-items:center;gap:10px}
+#navbar .eta{flex:1;display:flex;gap:16px;align-items:baseline}
+#navbar .eta b{font-size:24px;font-weight:800}
+#navbar .eta span{color:var(--mute);font-size:15px}
+#navbar .eta .arr{color:var(--go)}
+.circle{width:50px;height:50px;border-radius:50%;display:grid;place-items:center;background:#efedff;color:var(--p1)}
+.circle.red{background:#ffe5ea;color:var(--err)}
+.circle svg{width:24px;height:24px}
+#speed{position:fixed;left:12px;bottom:calc(var(--sb) + 104px);z-index:6;width:74px;height:74px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;justify-content:center;border:4px solid transparent}
+body:not(.nav) #speed{bottom:calc(var(--sb) + 24px)}
+#speed b{font-size:26px;font-weight:800;line-height:1}
+#speed small{font-size:11px;color:var(--mute)}
+#speed.over{border-color:var(--err);color:var(--err)}
+#limit{position:fixed;left:70px;bottom:calc(var(--sb) + 160px);z-index:7;width:42px;height:42px;border-radius:50%;background:#fff;border:5px solid var(--err);display:grid;place-items:center;font-weight:800;font-size:15px;box-shadow:var(--shadow)}
+body:not(.nav) #limit{bottom:calc(var(--sb) + 80px)}
+#recenter{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 104px);z-index:6;background:var(--card);box-shadow:var(--shadow);border-radius:999px;padding:12px 18px;font-weight:700;color:var(--p1);display:flex;gap:8px;align-items:center}
+#recenter svg{width:20px;height:20px}
+
+/* ---- waarschuwingen ---- */
+#alert{position:fixed;left:14px;right:14px;top:calc(var(--st) + 136px);z-index:9;border-radius:22px;padding:14px 16px;color:#fff;display:flex;gap:14px;align-items:center;box-shadow:0 10px 30px rgba(239,60,90,.45);background:linear-gradient(120deg,#ff3d6e,#ff7a3c);animation:pop .25s ease-out}
+body:not(.nav) #alert{top:calc(var(--st) + 80px)}
+#alert.traffic{background:linear-gradient(120deg,#ff9a00,#ffc93c);color:#3a2300;box-shadow:0 10px 30px rgba(255,154,0,.4)}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+#alert .ai{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.25);display:grid;place-items:center;flex:none}
+#alert .ai svg{width:32px;height:32px}
+#alert b{display:block;font-size:22px;font-weight:800}
+#alert span{font-size:15px;font-weight:600;opacity:.95}
+#alert.pulse{animation:pulse 1s infinite}
+@keyframes pulse{50%{transform:scale(1.03)}}
+
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 110px);z-index:20;background:#1d1b3a;color:#fff;border-radius:14px;padding:12px 16px;font-size:15px;max-width:88vw;text-align:center;box-shadow:var(--shadow)}
+#toast.err{background:var(--err)}
+#scrim{position:fixed;inset:0;background:rgba(20,16,60,.25);z-index:7}
+
+/* positie-pijl */
+.me{width:40px;height:40px}
+.me svg{width:40px;height:40px;filter:drop-shadow(0 3px 6px rgba(60,40,140,.45))}
+.me.nofix{opacity:.45}
+.destpin{width:34px;height:44px}
+.foot{color:var(--mute);font-size:12px;text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<!-- zoeken -->
+<div id="top">
+  <div class="search">
+    <span class="dot"></span>
+    <input id="q" type="search" placeholder="Waar wil je heen?" autocomplete="off" enterkeyhint="search">
+    <button class="iconbtn" id="qclear" hidden aria-label="Wissen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <button class="iconbtn" id="opensettings" aria-label="Instellingen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.4"/><circle cx="10" cy="17" r="2.4"/></svg></button>
+  </div>
+  <div id="results" hidden></div>
+</div>
+
+<!-- knoppen -->
+<div id="fabs">
+  <button class="fab" id="mute" aria-label="Stem aan/uit" hidden></button>
+  <button class="fab report" id="report" aria-label="Flitser melden"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17v.5"/></svg></button>
+  <button class="fab" id="locate" aria-label="Mijn locatie"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+</div>
+
+<!-- navigatie -->
+<div id="banner" hidden>
+  <div class="ic" id="bicon"></div>
+  <div style="min-width:0;flex:1">
+    <div id="bdist">–</div>
+    <div id="btext">Route berekenen…</div>
+    <div id="broad"></div>
+  </div>
+</div>
+<div id="then" hidden><span>Daarna</span><span id="thenic"></span></div>
+<div id="navbar" hidden>
+  <div class="eta"><b class="arr" id="eta">--:--</b><span id="remt">– min</span><span id="remd">– km</span></div>
+  <button class="circle" id="navmute" aria-label="Stem aan/uit"></button>
+  <button class="circle red" id="stopnav" aria-label="Stoppen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+<div id="speed"><b id="spd">0</b><small>km/u</small></div>
+<div id="limit" hidden></div>
+<button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>
+
+<div id="alert" hidden><div class="ai" id="aicon"></div><div><b id="atitle">Let op flitser</b><span id="atext"></span></div></div>
+
+<div id="scrim" hidden></div>
+
+<!-- route kiezen -->
+<div class="sheet" id="routesheet" hidden>
+  <div class="grab"></div>
+  <h2 id="destname">Bestemming</h2>
+  <p class="sub" id="destsub"></p>
+  <div class="alts" id="alts"></div>
+  <p class="sub" id="routewarn" hidden></p>
+  <div class="row">
+    <button class="big ghost" id="cancelroute">Annuleren</button>
+    <button class="big go" id="startnav">Start</button>
+  </div>
+</div>
+
+<!-- melden -->
+<div class="sheet" id="reportsheet" hidden>
+  <div class="grab"></div>
+  <h2>Wat wil je melden?</h2>
+  <p class="sub">Op je huidige plek, in je rijrichting. Een melding blijft 3 uur staan.</p>
+  <div class="types">
+    <button class="type" data-type="mobiel" style="background:#ff4f8b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="13" height="9" rx="2"/><path d="M16 11l5-2v7l-5-2"/><circle cx="9.5" cy="12.5" r="2.2"/></svg>Mobiele flitser</button>
+    <button class="type" data-type="overig" style="background:#7b5cff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg>Controle</button>
+    <button class="type" data-type="vast" style="background:#2f9bff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8" y="3" width="8" height="8" rx="1.5"/><circle cx="12" cy="7" r="1.8"/><path d="M12 11v10"/></svg>Flitspaal</button>
+  </div>
+  <button class="big ghost" style="width:100%" id="cancelreport">Annuleren</button>
+</div>
+
+<!-- instellingen -->
+<div class="sheet" id="settings" hidden>
+  <div class="grab"></div>
+  <h2>Instellingen</h2>
+  <label class="set"><span>Gesproken aanwijzingen<small>Een Nederlandse stem zegt de afslagen voor.</small></span><input type="checkbox" class="sw" id="s-voice"></label>
+  <div class="set"><span>Stem testen<small id="voiceinfo">Hoor je niets? Installeer de Nederlandse stem via Android-instellingen &gt; Systeem &gt; Talen &gt; Tekst-naar-spraak.</small></span><button class="small" id="testvoice">Test</button></div>
+  <label class="set"><span>Flitsmelder<small id="flitsinfo">Flitspalen, trajectcontroles en meldingen.</small></span><input type="checkbox" class="sw" id="s-flits"></label>
+  <label class="set"><span>Verkeersinfo<small id="trafinfo">Files, ongevallen en afsluitingen van het NDW.</small></span><input type="checkbox" class="sw" id="s-traffic"></label>
+  <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
+  <div class="set"><span>Mijn meldingen<small id="myinfo">Nog geen meldingen.</small></span><button class="small" id="clearmine">Wissen</button></div>
+  <div class="set"><span>Rit simuleren<small>Rijdt de gekozen route na, handig om thuis te testen.</small></span><button class="small" id="simulate">Start</button></div>
+  <button class="big ghost" style="width:100%;margin-top:10px" id="closesettings">Klaar</button>
+  <p class="foot">MoesWeasley Maps · MoesWeasley™<br>Kaart © OpenStreetMap-bijdragers, OpenFreeMap · Routes OSRM · Verkeer NDW</p>
+</div>
+
+<div id="toast" hidden></div>
+
+<script src="lib/maplibre-gl.js"></script>
+<script>if(!window.maplibregl)document.write('<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"><\/script>')</script>
+<script src="config.js"></script>
+<script src="nav-core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

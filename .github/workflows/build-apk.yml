@@ -1,0 +1,76 @@
+name: APK bouwen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - 'data/**'
+      - 'ndw.py'
+      - '.github/workflows/ndw-data.yml'
+      - 'flitsers.py'
+      - '.github/workflows/flitsers.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Pakketten installeren
+        run: npm install --legacy-peer-deps
+
+      - name: Kerntests
+        run: node tests/test-core.js
+
+      - name: Bestanden klaarzetten
+        run: node prepare.js
+
+      - name: Android-project maken
+        run: |
+          npx cap add android
+          node android-setup.js
+
+      - name: App-icoon maken
+        continue-on-error: true
+        run: npx @capacitor/assets generate --android
+
+      - name: Synchroniseren
+        run: npx cap sync android
+
+      - name: APK bouwen
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          cd android
+          chmod +x gradlew
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Met eigen handtekening"
+            echo "$KEYSTORE_BASE64" | base64 -d > app/release.jks
+            export KEYSTORE_FILE=release.jks
+            node ../android-signing.js
+            ./gradlew assembleRelease
+            cp app/build/outputs/apk/release/app-release.apk ../moesweasley-maps.apk
+          else
+            echo "Geen sleutel gevonden (secret KEYSTORE_BASE64): testversie met wisselende handtekening"
+            node ../android-signing.js
+            ./gradlew assembleDebug
+            cp app/build/outputs/apk/debug/app-debug.apk ../moesweasley-maps.apk
+          fi
+
+      - name: APK klaarzetten om te downloaden
+        uses: actions/upload-artifact@v4
+        with:
+          name: moesweasley-maps-apk
+          path: moesweasley-maps.apk

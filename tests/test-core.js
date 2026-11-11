@@ -1,0 +1,60 @@
+// Snelle controle van de kernlogica: node tests/test-core.js
+const N = require("../nav-core.js");
+const assert = require("assert");
+
+// nep-OSRM-route: 1 km noord, dan rechtsaf 500 m oost, dan rotonde, dan aankomst
+const A = [4.9, 52.37], B = [4.9, 52.379], C = [4.9073, 52.379], D = [4.912, 52.379];
+const osrm = {
+  distance: 1820, duration: 200,
+  legs: [{ steps: [
+    { maneuver: { type: "depart", modifier: "straight", location: A }, name: "Damrak", distance: 1000, duration: 100, geometry: { coordinates: [A, [4.9, 52.3745], B] } },
+    { maneuver: { type: "turn", modifier: "right", location: B }, name: "Prins Hendrikkade", distance: 500, duration: 60, geometry: { coordinates: [B, C] } },
+    { maneuver: { type: "roundabout", modifier: "straight", exit: 2, location: C }, name: "", ref: "s100", distance: 320, duration: 40, geometry: { coordinates: [C, D] } },
+    { maneuver: { type: "arrive", modifier: "left", location: D }, name: "", distance: 0, duration: 0, geometry: { coordinates: [D, D] } }
+  ] }]
+};
+const r = N.buildRoute(osrm);
+assert.strictEqual(r.steps.length, 4);
+assert.strictEqual(r.steps[1].text, "Sla rechtsaf naar Prins Hendrikkade");
+assert.strictEqual(r.steps[2].text, "Neem op de rotonde de tweede afslag naar s100");
+assert.strictEqual(r.steps[3].text, "Je bestemming ligt links");
+assert.ok(Math.abs(r.steps[1].startDist - 1001) < 5, "startDist stap 2 " + r.steps[1].startDist);
+
+// positie 30 m naast de weg halverwege
+const loc = N.locate(r, 52.3745, 4.9004, 0);
+assert.ok(loc.off > 20 && loc.off < 35, "off " + loc.off);
+assert.ok(Math.abs(loc.along - 500) < 10, "along " + loc.along);
+assert.strictEqual(N.nextStepIndex(r, loc.along), 1);
+const rem = N.remainingTime(r, loc.along);
+assert.ok(rem > 140 && rem < 160, "rem " + rem);
+
+// teksten
+assert.strictEqual(N.fmtDist(347), "350 m");
+assert.strictEqual(N.fmtDist(1260), "1,3 km");
+assert.strictEqual(N.sayDist(1500), "anderhalve kilometer");
+assert.strictEqual(N.sayDist(2000), "2 kilometer");
+assert.strictEqual(N.fmtDur(4000), "1 u 07");
+
+const t = (m, extra) => N.instruction(Object.assign({ maneuver: m, name: "Hoofdweg" }, extra || {})).text;
+assert.strictEqual(t({ type: "off ramp", modifier: "slight right" }, { exits: "12", destinations: "A4: Den Haag, Leiden" }), "Neem afrit 12 rechts richting Den Haag");
+assert.strictEqual(t({ type: "fork", modifier: "slight left" }), "Houd links aan naar Hoofdweg");
+assert.strictEqual(t({ type: "merge", modifier: "straight" }), "Voeg in naar Hoofdweg");
+assert.strictEqual(t({ type: "end of road", modifier: "left" }), "Sla aan het einde van de weg linksaf naar Hoofdweg");
+assert.strictEqual(t({ type: "turn", modifier: "uturn" }), "Keer om naar Hoofdweg");
+assert.ok(N.instruction({ maneuver: { type: "new name", modifier: "straight" }, name: "X" }).silent);
+
+// punten op de route: flitser 10 m naast de weg na 1200 m, één ver weg, één verkeerde kijkrichting
+const cams = [
+  { id: 1, lat: 52.3791, lon: 4.9029 },
+  { id: 2, lat: 52.40, lon: 4.95 },
+  { id: 3, lat: 52.3791, lon: 4.9050, h: 0 }
+];
+const on = N.pointsOnRoute(r, cams, 40);
+assert.deepStrictEqual(on.map(o => o.p.id), [1]);
+assert.ok(Math.abs(on[0].along - 1200) < 20, "along cam " + on[0].along);
+
+// vrij rijden: rijrichting noord, flitser 300 m voor je
+const fa = N.aheadFree(52.37, 4.9, 0, [{ lat: 52.3727, lon: 4.9 }, { lat: 52.367, lon: 4.9 }], 500);
+assert.ok(fa && fa.d > 280 && fa.d < 320);
+
+console.log("Alle kerntests geslaagd");

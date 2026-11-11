@@ -1,0 +1,30 @@
+{
+  "name": "moesweasley-maps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MoesWeasley Maps - navigatie-app met flitsmelder en verkeersinfo voor Android",
+  "scripts": {
+    "setup:android": "node prepare.js && npx cap add android && node android-setup.js",
+    "icons": "npx @capacitor/assets generate --android",
+    "sync": "node prepare.js && npx cap sync android",
+    "open": "npx cap open android",
+    "build:apk": "cd android && ./gradlew assembleDebug",
+    "test": "node tests/test-core.js"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "latest",
+    "@capacitor-community/keep-awake": "latest",
+    "@capacitor-community/text-to-speech": "latest",
+    "@capacitor/android": "latest",
+    "@capacitor/app": "latest",
+    "@capacitor/core": "latest",
+    "@capacitor/geolocation": "latest",
+    "@capacitor/haptics": "latest",
+    "@capacitor/status-bar": "latest",
+    "maplibre-gl": "4.7.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "latest",
+    "@capacitor/cli": "latest"
+  }
+}

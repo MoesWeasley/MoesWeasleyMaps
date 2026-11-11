@@ -1,0 +1,32 @@
+name: Flitsers NL (OpenStreetMap)
+
+on:
+  # elke nacht de vaste flitsers vernieuwen (04:17 Nederlandse wintertijd); handmatig kan ook via Actions
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Flitsers ophalen uit OpenStreetMap
+        run: python3 flitsers.py
+
+      - name: Opslaan als er iets veranderd is
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/flitsers.json data/flitsers-diagnose.json 2>/dev/null || git add data/flitsers-diagnose.json
+          if git diff --cached --quiet; then
+            echo "Geen wijzigingen."
+          else
+            git commit -m "Flitsers bijgewerkt"
+            git pull --rebase origin main
+            git push
+          fi

@@ -1,0 +1,9 @@
+{
+  "appId": "nl.moesweasley.maps",
+  "appName": "MoesWeasley Maps",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "useLegacyBridge": true
+  }
+}
