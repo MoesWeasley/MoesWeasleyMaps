@@ -871,7 +871,7 @@ function navUpdate(along) {
   }
 }
 function arrive() {
-  st.arrived = true; st.happyUntil = Date.now() + 9000;
+  st.arrived = true; st.happyUntil = Date.now() + 4000;
   var last = st.route.steps[st.route.steps.length - 1];
   say(last ? last.voice : "Je bent op je bestemming");
   vibrate([60, 60, 60]);
@@ -1148,7 +1148,7 @@ function updateLimit() {
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
 /* ---------- assistent Moes ---------- */
-var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null;
+var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null, moesSeen = { key: null, until: 0, kind: "", fastOn: false, fastUntil: 0, fastCool: 0 };
 function moesLine(state, dir) {
   var DIRS = { "left": "Hier links!", "sharp left": "Scherp links!", "slight left": "Links aanhouden!", "right": "Hier rechts!", "sharp right": "Scherp rechts!",
     "slight right": "Rechts aanhouden!", "straight": "Rechtdoor!", "uturn": "Omkeren!" };
@@ -1199,22 +1199,29 @@ function updateMoes() {
   var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
   var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit;
   if (st.speed < 0.8) { if (!stillSince) stillSince = now; } else stillSince = 0;
-  var state = "idle", dir = null, a = alertFor || "";
-  if (a.charAt(0) === "c") state = "shock";
-  else if (lim && kmh > lim + 8) state = "fast";
-  else if (a.charAt(0) === "t") state = "worried";
-  else if (st.arrived || (st.happyUntil && now < st.happyUntil)) state = "happy";
+  /* korte reacties: alleen even schrikken/bezorgd kijken als een melding begint, daarna weer gewoon */
+  var a = alertFor || "";
+  if (a && a !== moesSeen.key) { moesSeen.key = a; moesSeen.until = now + (a.charAt(0) === "c" ? 2500 : 2000); moesSeen.kind = a.charAt(0); }
+  if (!a) moesSeen.key = null;
+  var tooFast = lim && kmh > lim + 8;
+  if (tooFast && !moesSeen.fastOn && now > moesSeen.fastCool) { moesSeen.fastOn = true; moesSeen.fastUntil = now + 2500; moesSeen.fastCool = now + 30000; }
+  if (!tooFast) moesSeen.fastOn = false;
+  var state = "idle", dir = null;
+  if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "c") state = "shock";
+  else if (moesSeen.fastOn && now < moesSeen.fastUntil) state = "fast";
+  else if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "t") state = "worried";
+  else if (st.happyUntil && now < st.happyUntil) state = "happy";
   else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist < Math.max(400, N.thresholds(st.speed).prep + 100)) { state = "point"; dir = st.nextMan.mod; }
   else if (stillSince && now - stillSince > 30000 && !st.nav) state = "sleepy";
   if (state !== lastMoesState || (state === "point" && dir !== lastMoesDir)) {
     var line = moesLine(state, dir);
-    if (line && (state !== "point" || lastMoesState !== "point" || dir !== lastMoesDir)) moes.say(line, state === "sleepy" ? 3000 : 2200);
+    if (line && (state !== "point" || lastMoesState !== "point" || dir !== lastMoesDir)) moes.say(line, state === "sleepy" ? 2500 : state === "point" ? 1800 : 1600);
     lastMoesState = state; lastMoesDir = dir;
   }
   moes.speed(kmh);
   moes.set(state, dir);
 }
-setInterval(updateMoes, 500);
+setInterval(updateMoes, 250);
 
 function checkWarnings() {
   var kmh = st.speed * 3.6, camHit = null, trafHit = null;
