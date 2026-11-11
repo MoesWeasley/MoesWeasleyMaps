@@ -1528,7 +1528,7 @@ function moesIdle() {
   if (!driving && !st.nav) acts.push("stretch", "stretch");
   if (Math.random() < 0.06) acts = ["sneeze"]; /* heel soms niezen */
   /* stilstaan of rustig rijden: tijd voor een hapje, drankje of een spelletje */
-  if (!st.nav || !st.nextMan || st.nextMan.dist > 1500) { acts.push("drink"); if (!driving) acts.push("eat", "game", "game"); else acts.push("eat"); }
+  if (!st.nav || !st.nextMan || st.nextMan.dist > 300) { acts.push("drink"); if (!driving) acts.push("eat", "game", "game"); else acts.push("eat"); }
   var a = acts[Math.floor(Math.random() * acts.length)];
   if (!moes.play(a)) return;
   if (a === "eat") { moes.say(["Mmm, hamburger!", "Even een hapje…", "Smikkel smikkel"][Math.floor(Math.random() * 3)], 1800); setTimeout(function () { if (moes.act === null && moes.state === "idle") moes.say("Lekker!", 1300); }, 4800); }
@@ -1570,7 +1570,7 @@ function updateMoes() {
   else if (moesSeen.fastOn && now < moesSeen.fastUntil) state = "fast";
   else if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "t") state = "worried";
   else if (st.happyUntil && now < st.happyUntil) state = "happy";
-  else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist < Math.max(400, N.thresholds(st.speed).prep + 100)) { state = "point"; dir = st.nextMan.mod; }
+  else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist <= 50) { state = "point"; dir = st.nextMan.mod; } /* pas op 50 m wijzen, daarvoor gewoon zijn eigen gang gaan */
   else if (stillSince && now - stillSince > 30000 && !st.nav && now > moesAwakeUntil) state = "sleepy";
   if (state !== lastMoesState || (state === "point" && dir !== lastMoesDir)) {
     var line = moesLine(state, dir);
