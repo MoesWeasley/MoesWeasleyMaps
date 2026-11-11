@@ -147,8 +147,9 @@
     requestAnimationFrame(function (t) { self.tick(t); });
     if (document.hidden || this.el.hidden) { this.last = now; return; }
     /* spaarstand: maar ~12 keer per seconde bijwerken */
-    if (document.body.classList.contains("saver") && this.last && now - this.last < 80) return;
-    var dt = this.last ? Math.min(0.05, (now - this.last) / 1000) : 0.016; this.last = now;
+    if (document.body.classList.contains("saver") && this.last && now - this.last < 32) return; /* spaarstand: 30 beeldjes per seconde */
+    var dt = this.last ? Math.min(0.1, (now - this.last) / 1000) : 0.016; this.last = now;
+    var steps = Math.max(1, Math.ceil(dt / 0.008)), h = dt / steps; /* kleine vaste stapjes: even soepel bij elke beeldsnelheid */
     var holding = this.act && ACTS[this.act].hold;
     var t = now / 1000 + this.seed, st = this.state, calm = holding ? 0.18 : st === "sleepy" ? 0.35 : st === "point" ? 0.45 : st === "shock" || st === "fast" ? 0.2 : 1;
     /* doorlopende levendigheid: verschillende ritmes per onderdeel */
@@ -163,22 +164,21 @@
     var goal = { L: this.tgt.L + n.L, R: this.tgt.R + n.R, head: this.tgt.head + n.head - this.inert.lean * 0.4,
       lean: this.tgt.lean + n.lean + this.inert.lean, y: this.tgt.y + n.y + this.inert.y };
     var K = 70, C = 9; /* stijf genoeg om snel te reageren, slap genoeg om na te veren */
-    for (var k in goal) {
+    for (var k in goal) for (var si = 0; si < steps; si++) {
       var a = K * (goal[k] - this.cur[k]) - C * this.vel[k];
-      this.vel[k] += a * dt; this.cur[k] += this.vel[k] * dt;
+      this.vel[k] += a * h; this.cur[k] += this.vel[k] * h;
     }
     /* oortjes: naar achteren bij hard rijden, af en toe een trillertje */
     if (t > this.nextFlick) { this.flick = 1; this.nextFlick = t + 2.5 + Math.random() * 5; }
     this.flick *= Math.exp(-dt * 6);
     var earGoal = -Math.max(0, Math.min(1, (this.kmh - 70) / 50)) * 24 + this.flick * 14 * Math.sin(t * 40);
-    var ea = K * (earGoal - this.cur.ear) - C * this.vel.ear; this.vel.ear += ea * dt; this.cur.ear += this.vel.ear * dt;
+    for (var se = 0; se < steps; se++) { var ea = K * (earGoal - this.cur.ear) - C * this.vel.ear; this.vel.ear += ea * h; this.cur.ear += this.vel.ear * h; }
     /* oogjes: kleine kijkbewegingen */
     if (t > this.nextSacc && st !== "sleepy" && st !== "happy" && !holding) {
       this.sacc = st === "idle" ? [(Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 1.2] : [(Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.5];
       this.nextSacc = t + 0.8 + Math.random() * 2.4;
     }
     var lx = this.lookBase[0] + this.sacc[0], ly = this.lookBase[1] + this.sacc[1];
-    for (var i = 0; i < this.looks.length; i++) this.looks[i].style.transform = "translate(" + lx.toFixed(2) + "px," + ly.toFixed(2) + "px)";
     /* voetjes: af en toe tikken of wiebelen, blij = trappelen, slapen = stil */
     if (t > this.nextFoot && !this.footAct && (st === "idle" || st === "point") && (!this.act || holding)) {
       var kinds = ["tapL", "tapR", "wiggle", "swing"], kd = kinds[Math.floor(Math.random() * kinds.length)];
@@ -196,21 +196,30 @@
       else if (fa.k === "swing") { fg.fL = -1.8 * Math.max(0, Math.sin(ph * Math.PI * 3)); fg.fR = -1.8 * Math.max(0, Math.sin(ph * Math.PI * 3 + Math.PI)); fg.rL = 8 * Math.sin(ph * Math.PI * 3); fg.rR = 8 * Math.sin(ph * Math.PI * 3); }
     }
     if (st === "shock") { fg.rL = -10; fg.rR = 10; }
-    for (var fk in fg) { var fa2 = 260 * (fg[fk] - this.cur[fk]) - 18 * this.vel[fk]; this.vel[fk] += fa2 * dt; this.cur[fk] += this.vel[fk] * dt; }
+    for (var fk in fg) for (var sf = 0; sf < steps; sf++) { var fa2 = 260 * (fg[fk] - this.cur[fk]) - 18 * this.vel[fk]; this.vel[fk] += fa2 * h; this.cur[fk] += this.vel[fk] * h; }
     /* kijken naar waar je op het scherm tikt */
     if (this.gaze && now > this.gaze.until) { this.gaze = null; }
-    if (this.gaze && st !== "sleepy") { lx = this.gaze.x; ly = this.gaze.y; for (var gi = 0; gi < this.looks.length; gi++) this.looks[gi].style.transform = "translate(" + lx.toFixed(2) + "px," + ly.toFixed(2) + "px)"; }
+    if (this.gaze && st !== "sleepy") { lx = this.gaze.x; ly = this.gaze.y; }
+    var ek = 1 - Math.exp(-dt / 0.07); /* oogjes glijden zelf naar de nieuwe kijkrichting */
+    this.eye = this.eye || [lx, ly]; this.eye[0] += (lx - this.eye[0]) * ek; this.eye[1] += (ly - this.eye[1]) * ek;
+    this.w("look", "translate(" + this.eye[0].toFixed(2) + "px," + this.eye[1].toFixed(2) + "px)", this.looks);
     var p = this.p, c = this.cur;
-    p.footL.style.transform = "translateY(" + c.fL.toFixed(2) + "px) rotate(" + c.rL.toFixed(2) + "deg)";
-    p.footR.style.transform = "translateY(" + c.fR.toFixed(2) + "px) rotate(" + c.rR.toFixed(2) + "deg)";
-    p.L.style.transform = "rotate(" + c.L.toFixed(2) + "deg)";
-    p.R.style.transform = "rotate(" + c.R.toFixed(2) + "deg)";
-    p.head.style.transform = "rotate(" + c.head.toFixed(2) + "deg)";
-    p.all.style.transform = "translateY(" + c.y.toFixed(2) + "px) rotate(" + c.lean.toFixed(2) + "deg)";
-    p.earL.style.transform = "rotate(" + c.ear.toFixed(2) + "deg)";
-    p.earR.style.transform = "rotate(" + (-c.ear).toFixed(2) + "deg)";
+    this.w("fL", "translateY(" + c.fL.toFixed(2) + "px) rotate(" + c.rL.toFixed(1) + "deg)", p.footL);
+    this.w("fR", "translateY(" + c.fR.toFixed(2) + "px) rotate(" + c.rR.toFixed(1) + "deg)", p.footR);
+    this.w("L", "rotate(" + c.L.toFixed(1) + "deg)", p.L);
+    this.w("R", "rotate(" + c.R.toFixed(1) + "deg)", p.R);
+    this.w("head", "rotate(" + c.head.toFixed(1) + "deg)", p.head);
+    this.w("all", "translateY(" + c.y.toFixed(2) + "px) rotate(" + c.lean.toFixed(2) + "deg)", p.all);
+    this.w("eL", "rotate(" + c.ear.toFixed(1) + "deg)", p.earL);
+    this.w("eR", "rotate(" + (-c.ear).toFixed(1) + "deg)", p.earR);
     /* traagheid dooft vanzelf uit */
     this.inert.lean *= Math.exp(-dt * 1.5); this.inert.y *= Math.exp(-dt * 2);
+  };
+  /* stijl alleen bijwerken als de waarde echt anders is (minder tekenwerk) */
+  Mascot.prototype.w = function (key, val, el) {
+    var c = this.wc || (this.wc = {});
+    if (c[key] === val) return; c[key] = val;
+    if (el && el.length != null && !el.style) { for (var i = 0; i < el.length; i++) el[i].style.transform = val; } else el.style.transform = val;
   };
   /* auto-beweging doorgeven: draaisnelheid (graden/s, + = rechts) en versnelling (m/s², + = optrekken) */
   Mascot.prototype.motion = function (turnRate, accel) {
@@ -228,7 +237,6 @@
   };
   Mascot.prototype.look = function (dx, dy) {
     this.lookBase = [dx, dy];
-    for (var i = 0; i < this.looks.length; i++) this.looks[i].style.transform = "translate(" + dx + "px," + dy + "px)";
   };
   Mascot.prototype.poseFor = function () {
     var d = this.dir;

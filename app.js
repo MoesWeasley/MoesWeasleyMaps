@@ -4,6 +4,9 @@
 var N = window.NavCore, CFG = window.NAVI_CFG || {};
 var CAP = window.Capacitor, NATIVE = !!(CAP && CAP.isNativePlatform && CAP.isNativePlatform()), PL = (CAP && CAP.Plugins) || {};
 var $ = function (id) { return document.getElementById(id); };
+/* tekst/opmaak alleen aanpassen als die echt anders is: scheelt veel tekenwerk achter het glas */
+function txt(id, v) { var e = typeof id === "string" ? $(id) : id; v = v == null ? "" : String(v); if (e.__t !== v) { e.__t = v; e.textContent = v; } }
+function html(id, v) { var e = typeof id === "string" ? $(id) : id; if (e.__h !== v) { e.__h = v; e.innerHTML = v; } }
 
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -540,9 +543,9 @@ function onPos(p, simulated) {
   st.pos = { lat: p.lat, lon: p.lon }; st.acc = p.acc;
   st.speed = Math.max(0, p.speed || 0);
   if (p.heading != null && !isNaN(p.heading) && st.speed > 1.5) st.heading = p.heading;
-  store("lastpos", st.pos);
-  osmLimit();
-  $("spd").textContent = Math.round(st.speed * 3.6);
+  if (Date.now() - (st.posSaved || 0) > 10000) { st.posSaved = Date.now(); store("lastpos", st.pos); } /* niet bij elk GPS-puntje naar de opslag schrijven */
+  if (Date.now() - (osm.lastMatch || 0) > 300) { osm.lastMatch = Date.now(); osmLimit(); } /* weg opzoeken hooguit ~3x per seconde */
+  txt("spd", Math.round(st.speed * 3.6));
 
   /* De pijl staat ALTIJD op een weg:
      - op de route: precies op de routelijn (en hij beweegt langs de lijn, ook door bochten)
@@ -579,7 +582,7 @@ function snapRoad(lat, lon) {
         var w = d && d.waypoints && d.waypoints[0];
         if (w && w.distance < 60) {
           near.pt = { lat: w.location[1], lon: w.location[0] }; near.at = at; near.t = Date.now(); near.name = w.name || "";
-          if (st.drive) { $("street").textContent = near.name; $("street").hidden = !near.name; }
+          if (st.drive) { txt("street", near.name); $("street").hidden = !near.name; }
         }
       }).catch(function () {}).then(function () { near.busy = false; });
   }
@@ -635,10 +638,11 @@ function frame(now) {
   /* tijdens navigeren staat de pijl vast op het scherm en draait de kaart eronder: geen trilling */
   var fixed = following && (st.nav || st.drive);
   /* vaste pijl: draaien met het verschil tussen weg en kaart, zodat hij altijd recht op de weg staat */
-  if (fixed) { var dd = anim.tan != null ? ((anim.tan - anim.rot + 540) % 360) - 180 : 0; $("navarrow").style.transform = "rotate(" + dd.toFixed(1) + "deg)"; }
-  $("navarrow").hidden = !fixed;
+  var na = anim.na || (anim.na = $("navarrow"));
+  if (fixed) { var dd = anim.tan != null ? ((anim.tan - anim.rot + 540) % 360) - 180 : 0, tr = "rotate(" + dd.toFixed(1) + "deg)"; if (na.__r !== tr) { na.__r = tr; na.style.transform = tr; } }
+  if (na.hidden !== !fixed) na.hidden = !fixed;
   if (meMarker) {
-    meMarker.getElement().style.visibility = fixed ? "hidden" : "";
+    var mv = fixed ? "hidden" : ""; if (meMarker.getElement().style.visibility !== mv) meMarker.getElement().style.visibility = mv;
     if (!fixed) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.tan != null ? anim.tan : anim.rot); }
   }
   if (following) {
@@ -970,23 +974,23 @@ function navUpdate(along) {
   var r = st.route; if (!r || st.arrived) return;
   st.along = along;
   var remD = Math.max(0, r.distance - along), remT = N.remainingTime(r, along);
-  $("eta").textContent = hhmm(new Date(Date.now() + remT * 1000));
-  $("remt").textContent = N.fmtDur(remT); $("remd").textContent = N.fmtDist(remD);
+  txt("eta", hhmm(new Date(Date.now() + remT * 1000)));
+  txt("remt", N.fmtDur(remT)); txt("remd", N.fmtDist(remD));
   if (remD < 30 && !st.arrived) { arrive(); return; }
   var i = N.nextStepIndex(r, along), s = r.steps[i], dist = Math.max(0, s.startDist - along);
   st.roadLimit = N.speedAt(r, along);
   st.nextMan = { mod: s.mod || "straight", dist: Math.max(0, s.startDist - along), type: s.type, silent: s.silent };
-  $("bicon").innerHTML = junctionSVG(s) || maneuverSVG(s.icon);
+  html("bicon", junctionSVG(s) || maneuverSVG(s.icon));
   renderGuide(s, dist);
-  $("bdist").textContent = N.fmtDist(dist);
-  $("btext").textContent = s.type === "arrive" ? s.text : (s.type === "roundabout" || s.type === "rotary") && s.icon.exit ? "Rotonde, " + s.icon.exit + "e afslag" :
-    s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, "");
+  txt("bdist", N.fmtDist(dist));
+  txt("btext", s.type === "arrive" ? s.text : (s.type === "roundabout" || s.type === "rotary") && s.icon.exit ? "Rotonde, " + s.icon.exit + "e afslag" :
+    s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, ""));
   var extra = (s.text.match(/ (richting .*)$/) || [])[1];
-  $("broad").textContent = s.road || (extra ? extra : "");
-  var cur = r.steps[i - 1] && r.steps[i - 1].road; $("street").textContent = cur || ""; $("street").hidden = !cur;
+  txt("broad", s.road || (extra ? extra : ""));
+  var cur = r.steps[i - 1] && r.steps[i - 1].road; txt("street", cur || ""); if ($("street").hidden !== !cur) $("street").hidden = !cur;
   var nx = r.steps[i + 1], close = nx && nx.startDist - s.startDist < 160 && !nx.silent;
-  $("then").hidden = !close;
-  if (close) $("thenic").innerHTML = maneuverSVG(nx.icon);
+  if ($("then").hidden !== !close) $("then").hidden = !close;
+  if (close) html("thenic", maneuverSVG(nx.icon));
 
   /* hardop */
   if (s.silent || st.rerouting) return;
@@ -1020,10 +1024,10 @@ function arrive() {
   /* balk wordt een aankomstkaart */
   $("guide").hidden = true; document.body.classList.remove("guide"); $("then").hidden = true; hideAlert();
   $("banner").classList.add("arrived");
-  $("bdist").textContent = "Je bent er!"; $("btext").textContent = st.dest ? st.dest.name : "";
-  $("broad").textContent = last ? last.text : "";
-  $("bicon").innerHTML = maneuverSVG({ kind: "arrive" });
-  $("eta").textContent = hhmm(new Date()); $("remt").textContent = "aangekomen"; $("remd").textContent = "";
+  txt("bdist", "Je bent er!"); txt("btext", st.dest ? st.dest.name : "");
+  txt("broad", last ? last.text : "");
+  html("bicon", maneuverSVG({ kind: "arrive" }));
+  txt("eta", hhmm(new Date())); txt("remt", "aangekomen"); txt("remd", "");
   clearTimeout(st.arriveT); st.arriveT = setTimeout(function () { if (st.arrived && st.nav) toDrive(); }, 4500);
 }
 /* na aankomst: vloeiend over naar rijmodus zonder route (kaart volgt, flitsers en verkeer blijven werken) */
@@ -1050,7 +1054,7 @@ function toDrive() {
     if (destMarker) { destMarker.remove(); destMarker.getElement().style.opacity = ""; }
   }, 650);
   hideAlert(); updateLimit();
-  $("street").hidden = !near.name; $("street").textContent = near.name || "";
+  $("street").hidden = !near.name; txt("street", near.name || "");
   if (anim.cur) { near.lastReq = 0; snapRoad(anim.cur.lat, anim.cur.lon); }
 }
 function stopDrive() {
@@ -1068,7 +1072,7 @@ function reroute() {
     st.stops = st.stops.filter(function (sp, i) { return wps[i] == null || wps[i] > (st.along || 0) + 30; });
   }
   st.rerouting = true; st.lastReroute = Date.now();
-  $("btext").textContent = "Nieuwe route berekenen…"; $("bdist").textContent = "↻"; $("broad").textContent = "";
+  txt("btext", "Nieuwe route berekenen…"); txt("bdist", "↻"); txt("broad", "");
   say("Route wordt herberekend");
   fetchRoutes(st.pos, st.dest, st.heading).then(function (routes) {
     if (!st.nav) return;
@@ -1078,7 +1082,7 @@ function reroute() {
     if (st.pos) { var loc = N.locate(st.route, st.pos.lat, st.pos.lon, 0); st.hint = loc.idx; navUpdate(loc.along); }
   }).catch(function () {
     if (!st.nav) return;
-    $("bdist").textContent = "↻"; $("btext").textContent = "Buiten de route"; $("broad").textContent = "Geen nieuwe route gevonden, ik probeer het zo opnieuw";
+    txt("bdist", "↻"); txt("btext", "Buiten de route"); txt("broad", "Geen nieuwe route gevonden, ik probeer het zo opnieuw");
     toast("Geen nieuwe route gevonden, ik probeer het zo weer.", true);
   })
     .then(function () { st.rerouting = false; });
@@ -1105,13 +1109,15 @@ function startSim() {
   if (!st.nav) startNav();
   toast("Simulatie gestart");
 }
-function stopSim() { if (st.sim) { clearInterval(st.sim); st.sim = null; st.speed = 0; $("spd").textContent = "0"; } }
+function stopSim() { if (st.sim) { clearInterval(st.sim); st.sim = null; st.speed = 0; txt("spd", "0"); } }
 
 /* ---------- flitsers ---------- */
 var natData = load("flitsers", null), mine = load("mine", []), community = [];
 var REPORT_TTL = 3 * 3600 * 1000;
 function camLabel(t) { return { vast: "Flitspaal", mobiel: "Mobiele flitser", traject: "Trajectcontrole", roodlicht: "Roodlichtcamera", overig: "Controle" }[t] || "Flitser"; }
+var camCache = null, camCacheT = 0;
 function allCams() {
+  if (camCache && Date.now() - camCacheT < 20000) return camCache;
   var a = [], now = Date.now();
   if (natData) {
     (natData.cams || []).forEach(function (c) { a.push(c); });
@@ -1119,9 +1125,11 @@ function allCams() {
   }
   mine.forEach(function (c) { if (c.when + REPORT_TTL > now) a.push(Object.assign({ own: true }, c)); });
   community.forEach(function (c) { if (c.expires > now) a.push(c); });
+  camCache = a; camCacheT = Date.now();
   return a;
 }
 function drawCams() {
+  camCache = null; /* gegevens veranderd: lijst opnieuw opbouwen */
   if (!S.flits) { setData("cams", EMPTY); return; }
   setData("cams", { type: "FeatureCollection", features: allCams().map(function (c) {
     return { type: "Feature", properties: { type: c.type, icon: "cam-" + (CAMCOL[c.type] ? c.type : "overig"), max: c.max || 0, own: !!c.own, community: !!c.community, c: CAMCOL[c.type] || CAMCOL.overig }, geometry: { type: "Point", coordinates: [c.lon, c.lat] } };
@@ -1284,19 +1292,18 @@ var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
   var inBar = st.nav, a = $(inBar ? "balert" : "alert");
   $(inBar ? "alert" : "balert").hidden = true;
-  a.className = (/^traffic/.test(kind) ? "traffic" : kind === "hulp" ? "hulp" : "") + (pulse ? " pulse" : "");
-  $(inBar ? "batitle" : "atitle").textContent = title; $(inBar ? "batext" : "atext").textContent = text;
+  var cls = (/^traffic/.test(kind) ? "traffic" : kind === "hulp" ? "hulp" : "") + (pulse ? " pulse" : ""); if (a.className !== cls) a.className = cls;
+  txt(inBar ? "batitle" : "atitle", title); txt(inBar ? "batext" : "atext", text);
   var ic = $(inBar ? "baicon" : "aicon"); if (ic.dataset.k !== kind) { ic.innerHTML = icon; ic.dataset.k = kind; }
   ic.classList.toggle("badge", /^(cam|traffic)/.test(kind)); /* flitser- en verkeersbord-icoon vult het rondje helemaal */
-  a.hidden = false;
-  setTimeout(updateMoes, 0);
+  if (a.hidden) { a.hidden = false; setTimeout(updateMoes, 0); }
 }
 function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; alertFor = null; st.camMax = null; updateLimit(); }
 /* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
 function updateLimit() {
   /* volgorde: flitser in de buurt > route (Mapbox) > Mapbox vooruitkijken > OpenStreetMap-weg waar je nu rijdt */
   var lim = st.camMax || st.roadLimit || st.osmLimit || null, kmh = st.speed * 3.6;
-  $("limit").hidden = !lim; $("limit").textContent = lim || "";
+  if ($("limit").hidden !== !lim) $("limit").hidden = !lim; txt("limit", lim || "");
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
 /* ---------- navigeren met scherm uit: Android-accubesparing voor deze app uitzetten ---------- */
@@ -1364,7 +1371,7 @@ function osmFetch(lat, lon) {
       return { tags: e.tags || {}, g: e.geometry.map(function (p) { return [p.lon, p.lat]; }) };
     });
     osm.at = { lat: lat, lon: lon }; osm.t = Date.now(); osm.fail = 0;
-    store("osmways", { ways: osm.ways, at: osm.at, t: osm.t });
+    try { var js = JSON.stringify({ ways: osm.ways.map(function (w) { return { tags: w.tags, g: w.g }; }), at: osm.at, t: osm.t }); if (js.length < 1500000) localStorage.setItem("mn_osmways", js); } catch (e) {}
   }).catch(function () { osm.fail++; osm.nextTry = Date.now() + Math.min(120000, 10000 * osm.fail); })
     .then(function () { osm.busy = false; osmLimit(); updateLimit(); });
 }
@@ -1585,7 +1592,7 @@ function moesIdle() {
 /* draaien en optrekken van de auto doorgeven, zodat Moes meeleunt */
 var motionPrev = null;
 function moesMotion() {
-  if (!moes || !st.pos) return;
+  if (!moes || !st.pos || document.hidden) return;
   var now = Date.now(), b = anim.rot, v = st.speed;
   if (motionPrev) {
     var dt = (now - motionPrev.t) / 1000;
@@ -1597,7 +1604,7 @@ function moesMotion() {
   motionPrev = { t: now, b: b, v: v };
 }
 function updateMoes() {
-  if (!moes) return;
+  if (!moes || document.hidden) return; /* scherm uit of app op de achtergrond: niet tekenen */
   var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
   var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit || st.osmLimit;
   if (st.speed < 0.8) { if (!stillSince) stillSince = now; } else stillSince = 0;

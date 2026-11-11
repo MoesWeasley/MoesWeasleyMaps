@@ -284,7 +284,8 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 @keyframes mTail{0%,100%{transform:rotate(0)}30%{transform:rotate(-12deg)}55%{transform:rotate(4deg)}80%{transform:rotate(-6deg)}}
 #moes .m-blink{transform-origin:50px 38px;animation:mBlink 4.6s infinite}
 @keyframes mBlink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.08)}}
-#moes .m-look{transition:transform .18s ease-out}
+/* Smiesh op een eigen laag: zijn bewegingen laten het glas erachter niet steeds opnieuw tekenen */
+#moes svg{will-change:transform;transform:translateZ(0)}
 #moes .mf,#moes .mm,#moes .mx{opacity:0;transition:opacity .35s ease}
 #moes .m-blush{transition:opacity .5s}
 #moes[data-s=idle] .f-idle,#moes[data-s=point] .f-idle,#moes[data-s=shock] .f-shock,#moes[data-s=fast] .f-shock,#moes[data-s=worried] .f-worried,

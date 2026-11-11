@@ -365,8 +365,9 @@
 
   /* punt vóór je zonder route (vrij rijden): binnen een kegel rond je rijrichting */
   function aheadFree(lat, lon, heading, pts, maxDist, cone) {
-    cone = cone || 30; var best = null;
+    cone = cone || 30; var best = null, dLat = maxDist / 111000 + 0.001, dLon = dLat / Math.max(0.2, Math.cos(lat * RAD));
     pts.forEach(function (p) {
+      if (Math.abs(p.lat - lat) > dLat || Math.abs(p.lon - lon) > dLon) return; /* ver weg: overslaan zonder te rekenen */
       var d = distM(lat, lon, p.lat, p.lon);
       if (d > maxDist || d < 15) return;
       if (angleDiff(bearing(lat, lon, p.lat, p.lon), heading) > cone) return;
@@ -415,8 +416,11 @@
   function matchWay(ways, lat, lon, heading, maxD) {
     var best = null; maxD = maxD || 30;
     var k = Math.cos(lat * Math.PI / 180);
+    var pad = (maxD + 5) / 111000;
     (ways || []).forEach(function (w) {
       var g = w.g;
+      if (!w.bb) { w.bb = [180, 90, -180, -90]; g.forEach(function (q) { w.bb[0] = Math.min(w.bb[0], q[0]); w.bb[1] = Math.min(w.bb[1], q[1]); w.bb[2] = Math.max(w.bb[2], q[0]); w.bb[3] = Math.max(w.bb[3], q[1]); }); }
+      if (lon < w.bb[0] - pad * 1.7 || lon > w.bb[2] + pad * 1.7 || lat < w.bb[1] - pad || lat > w.bb[3] + pad) return; /* weg ligt niet in de buurt */
       for (var i = 0; i < g.length - 1; i++) {
         var ax = (g[i][0] - lon) * 111320 * k, ay = (g[i][1] - lat) * 110540, bx = (g[i + 1][0] - lon) * 111320 * k, by = (g[i + 1][1] - lat) * 110540;
         var dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / L2)) : 0;
