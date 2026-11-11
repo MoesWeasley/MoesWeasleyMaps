@@ -153,6 +153,37 @@ function keepAwake(on) {
   if (!on && wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
 }
 
+/* ---------- zwevende markers ----------
+   De standaard markers van de kaart springen per hele pixel, waardoor ze trillen als de kaart vloeiend beweegt.
+   Deze markers worden elk beeldje op de exacte (ook halve) pixel gezet. */
+var floats = [];
+function FloatMarker(el, opt) {
+  opt = opt || {};
+  this.el = el; this.anchor = opt.anchor || "center"; this.rotAlign = !!opt.rotate; this.flat = !!opt.flat; this.rot = 0; this.ll = null; this.map = null;
+  el.style.position = "absolute"; el.style.left = "0"; el.style.top = "0"; el.style.willChange = "transform"; el.style.pointerEvents = "none";
+}
+FloatMarker.prototype.setLngLat = function (ll) { this.ll = ll; this.update(); return this; };
+FloatMarker.prototype.setRotation = function (r) { this.rot = r || 0; this.update(); return this; };
+FloatMarker.prototype.getElement = function () { return this.el; };
+FloatMarker.prototype.addTo = function (m) {
+  if (this.map) return this; this.map = m; m.getContainer().appendChild(this.el);
+  if (floats.indexOf(this) < 0) floats.push(this); this.update(); return this;
+};
+FloatMarker.prototype.remove = function () { if (this.el.parentNode) this.el.parentNode.removeChild(this.el); this.map = null; floats.splice(floats.indexOf(this) >>> 0, 1); return this; };
+FloatMarker.prototype.update = function () {
+  if (!this.map || !this.ll) return;
+  var p = this.map.project(this.ll), a = this.anchor;
+  var shift = a === "bottom" ? "translate(-50%,-100%)" : a === "left" ? "translate(0,-50%)" : "translate(-50%,-50%)";
+  var t = "translate(" + p.x.toFixed(2) + "px," + p.y.toFixed(2) + "px) " + shift;
+  if (this.flat) t += " rotateX(" + (this.map.getPitch ? this.map.getPitch() : 0).toFixed(1) + "deg)";
+  if (this.rotAlign) t += " rotate(" + (this.rot - (this.map.getBearing ? this.map.getBearing() : 0)).toFixed(1) + "deg)";
+  this.el.style.transform = t;
+  /* achter de horizon of ver buiten beeld: verbergen */
+  var c = this.map.getContainer(), off = p.x < -200 || p.y < -200 || p.x > c.clientWidth + 200 || p.y > c.clientHeight + 200;
+  this.el.style.display = off ? "none" : "";
+};
+function updateFloats() { for (var i = 0; i < floats.length; i++) floats[i].update(); }
+
 /* ---------- kaart ---------- */
 var map = null, mapReady = false, meMarker = null, destMarker = null;
 function initMap() {
@@ -182,7 +213,8 @@ function initMap() {
 
   var el = document.createElement("div"); el.className = "me nofix";
   el.innerHTML = '<svg viewBox="0 0 40 40"><defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#mg)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
-  meMarker = new maplibregl.Marker({ element: el, rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(last ? [last.lon, last.lat] : [5.29, 52.13]);
+  meMarker = new FloatMarker(el, { rotate: true, flat: true }).setLngLat(last ? [last.lon, last.lat] : [5.29, 52.13]);
+  map.on("render", updateFloats);
   if (last) meMarker.addTo(map);
 }
 var EMPTY = { type: "FeatureCollection", features: [] };
@@ -325,7 +357,7 @@ function onPos(p, simulated) {
   if (!show) show = snapRoad(p.lat, p.lon) || (anim.cur && st.nav ? null : { lat: p.lat, lon: p.lon });
   if (!show) show = anim.cur; /* nog geen weg gevonden: blijf op de laatste plek op de weg staan */
   if (map && meMarker) {
-    if (!meMarker._map) meMarker.addTo(map);
+    if (!meMarker.map) meMarker.addTo(map);
     meMarker.getElement().classList.toggle("nofix", false);
   }
   if (!gotFix) { gotFix = true; if (map && !st.dest) map.jumpTo({ center: [p.lon, p.lat], zoom: 15 }); }
@@ -525,7 +557,7 @@ function chooseDest(d) {
   if (!destMarker && window.maplibregl) {
     var el = document.createElement("div"); el.className = "destpin";
     el.innerHTML = '<svg viewBox="0 0 34 44"><defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4fa3"/><stop offset="1" stop-color="#ff9a3c"/></linearGradient></defs><path d="M17 1C8 1 1 8 1 17c0 12 16 26 16 26s16-14 16-26C33 8 26 1 17 1z" fill="url(#dg)" stroke="#fff" stroke-width="2"/><circle cx="17" cy="17" r="6" fill="#fff"/></svg>';
-    destMarker = new maplibregl.Marker({ element: el, anchor: "bottom" });
+    destMarker = new FloatMarker(el, { anchor: "bottom" });
   }
   if (destMarker && map) destMarker.setLngLat([d.lon, d.lat]).addTo(map);
   var from = origin();
@@ -1013,5 +1045,5 @@ setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */
-window.__mn = { st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG };
+window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG };
 })();
