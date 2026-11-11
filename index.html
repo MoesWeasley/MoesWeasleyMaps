@@ -217,6 +217,29 @@ body.guide #then{display:none}
 @keyframes topin{from{opacity:0;transform:translateY(-14px)}}
 body.drive #street{bottom:calc(var(--sb) + 28px)}
 body.drive #limit{bottom:calc(var(--sb) + 70px)}
+/* assistent Moes: eigen glazen bubbel boven de snelheidsmeter */
+#moes{position:fixed;left:14px;bottom:calc(var(--sb) + 112px);z-index:6;width:70px;height:70px;border-radius:50%;
+  background:var(--g-shine),var(--g-bg);-webkit-backdrop-filter:var(--g-blur);backdrop-filter:var(--g-blur);border:1px solid var(--g-edge);box-shadow:var(--g-shadow);
+  display:grid;place-items:center;overflow:visible}
+body.nav #moes{bottom:calc(var(--sb) + 192px)}
+#moes svg{width:62px;height:62px;overflow:visible}
+.moes-body{transform-origin:50px 80px;animation:moesBob 2.6s ease-in-out infinite}
+@keyframes moesBob{50%{transform:translateY(-2px) rotate(-1.5deg)}}
+.moes .eyes{transform-origin:50px 47px;animation:moesBlink 4.2s infinite}
+@keyframes moesBlink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.moes-arm{transform-origin:50px 80px;transition:transform .45s cubic-bezier(.3,1.4,.5,1),opacity .3s}
+.moes-shock .moes-body,.moes-fast .moes-body{animation:moesShake .32s linear infinite}
+@keyframes moesShake{25%{transform:translateX(-2px) rotate(-3deg)}75%{transform:translateX(2px) rotate(3deg)}}
+.moes-shock,.moes-fast{box-shadow:0 0 0 3px rgba(255,61,110,.55),var(--g-shadow)!important}
+.moes-happy .moes-body{animation:moesHop .7s ease-in-out infinite}
+@keyframes moesHop{50%{transform:translateY(-5px)}}
+.moes-happy{box-shadow:0 0 0 3px rgba(20,195,142,.5),var(--g-shadow)!important}
+.moes-worried{box-shadow:0 0 0 3px rgba(255,154,0,.5),var(--g-shadow)!important}
+.moes-sleepy .moes-body{animation:moesBreath 3.5s ease-in-out infinite}
+@keyframes moesBreath{50%{transform:scale(1.03)}}
+.zz{animation:moesZ 2.4s ease-in-out infinite}.z2{animation-delay:.8s}
+@keyframes moesZ{0%{opacity:0;transform:translateY(4px)}40%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
+.sparks{animation:moesSpark 1s ease-in-out infinite}@keyframes moesSpark{50%{opacity:.4}}
 /* glazen pijl */
 .me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
   -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
@@ -319,6 +342,7 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 </div>
 <div id="navarrow" hidden><svg viewBox="0 0 40 40"><defs><linearGradient id="ng" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b5cff"/><stop offset="1" stop-color="#ff4fa3"/></linearGradient></defs><path d="M20 4l11 29-11-6-11 6z" fill="url(#ng)" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
 <div id="street" hidden></div>
+<div id="moes" class="moes" hidden></div>
 <div id="speed"><b id="spd">0</b><small>km/u</small></div>
 <div id="limit" hidden></div>
 <button id="recenter" hidden><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>Hercentreren</button>
@@ -369,6 +393,7 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
     <input class="key" id="k-tomtom" placeholder="TomTom API-sleutel" autocomplete="off" spellcheck="false">
     <input class="key" id="k-here" placeholder="HERE API-sleutel" autocomplete="off" spellcheck="false">
     <button class="small" id="savekeys" style="margin-top:8px">Opslaan</button></div>
+  <label class="set"><span>Assistent Moes<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
   <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
   <div class="set"><span>Mijn meldingen<small id="myinfo">Nog geen meldingen.</small></span><button class="small" id="clearmine">Wissen</button></div>
   <div class="set"><span>Rit simuleren<small>Rijdt de gekozen route na, handig om thuis te testen.</small></span><button class="small" id="simulate">Start</button></div>
@@ -382,6 +407,7 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 <script>if(!window.maplibregl)document.write('<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"><\/script>')</script>
 <script src="config.js"></script>
 <script src="nav-core.js"></script>
+<script src="mascot.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

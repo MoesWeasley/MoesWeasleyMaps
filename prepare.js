@@ -3,7 +3,7 @@
 // Draai dit na "npm install", anders ontbreekt de kaartbibliotheek (de app valt dan terug op internet).
 const fs = require("fs");
 for (const d of ["www", "www/lib", "www/data", "assets"]) fs.mkdirSync(d, { recursive: true });
-for (const f of ["index.html", "app.js", "nav-core.js", "config.js"]) fs.copyFileSync(f, "www/" + f);
+for (const f of ["index.html", "app.js", "nav-core.js", "config.js", "mascot.js"]) fs.copyFileSync(f, "www/" + f);
 const ml = "node_modules/maplibre-gl/dist/";
 for (const f of ["maplibre-gl.js", "maplibre-gl.css"]) {
   if (fs.existsSync(ml + f)) fs.copyFileSync(ml + f, "www/lib/" + f);

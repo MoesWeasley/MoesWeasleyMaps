@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true }, load("set", {}));
+var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -775,6 +775,7 @@ function navUpdate(along) {
   if (remD < 30 && !st.arrived) { arrive(); return; }
   var i = N.nextStepIndex(r, along), s = r.steps[i], dist = Math.max(0, s.startDist - along);
   st.roadLimit = N.speedAt(r, along);
+  st.nextMan = { mod: s.mod || "straight", dist: Math.max(0, s.startDist - along), type: s.type, silent: s.silent };
   $("bicon").innerHTML = junctionSVG(s) || maneuverSVG(s.icon);
   renderGuide(s, dist);
   $("bdist").textContent = N.fmtDist(dist);
@@ -804,7 +805,7 @@ function navUpdate(along) {
   }
 }
 function arrive() {
-  st.arrived = true;
+  st.arrived = true; st.happyUntil = Date.now() + 9000;
   var last = st.route.steps[st.route.steps.length - 1];
   say(last ? last.voice : "Je bent op je bestemming");
   vibrate([60, 60, 60]);
@@ -1071,6 +1072,7 @@ function showAlert(kind, title, text, icon, pulse) {
   $(inBar ? "batitle" : "atitle").textContent = title; $(inBar ? "batext" : "atext").textContent = text;
   var ic = $(inBar ? "baicon" : "aicon"); if (ic.dataset.k !== kind) { ic.innerHTML = icon; ic.dataset.k = kind; }
   a.hidden = false;
+  setTimeout(updateMoes, 0);
 }
 function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; alertFor = null; st.camMax = null; updateLimit(); }
 /* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
@@ -1079,6 +1081,24 @@ function updateLimit() {
   $("limit").hidden = !lim; $("limit").textContent = lim || "";
   $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
 }
+/* ---------- assistent Moes ---------- */
+var moes = null, stillSince = 0;
+function updateMoes() {
+  if (!moes) return;
+  var el = $("moes"); el.hidden = !S.moes; if (!S.moes) return;
+  var now = Date.now(), kmh = st.speed * 3.6, lim = st.camMax || st.roadLimit;
+  if (st.speed < 0.8) { if (!stillSince) stillSince = now; } else stillSince = 0;
+  var state = "idle", dir = null, a = alertFor || "";
+  if (a.charAt(0) === "c") state = "shock";
+  else if (lim && kmh > lim + 8) state = "fast";
+  else if (a.charAt(0) === "t") state = "worried";
+  else if (st.arrived || (st.happyUntil && now < st.happyUntil)) state = "happy";
+  else if (st.nav && st.nextMan && !st.nextMan.silent && st.nextMan.type !== "arrive" && st.nextMan.dist < Math.max(400, N.thresholds(st.speed).prep + 100)) { state = "point"; dir = st.nextMan.mod; }
+  else if (stillSince && now - stillSince > 30000 && !st.nav) state = "sleepy";
+  moes.set(state, dir);
+}
+setInterval(updateMoes, 500);
+
 function checkWarnings() {
   var kmh = st.speed * 3.6, camHit = null, trafHit = null;
   var camRange = Math.max(400, st.speed * 22), trafRange = st.speed > 22 ? 2000 : st.speed > 14 ? 1200 : 600;
@@ -1117,6 +1137,7 @@ function checkWarnings() {
     return;
   }
   if (alertFor) hideAlert(); else updateLimit();
+  updateMoes();
 }
 
 /* ---------- Firebase (gedeelde meldingen, zelfde opslag als sprintje) ---------- */
@@ -1192,6 +1213,7 @@ function wire() {
     var box = st.routes.length ? routesBox(st.routes) : (map ? (function () { var b = map.getBounds(); return { w: b.getWest(), s: b.getSouth(), e: b.getEast(), n: b.getNorth() }; })() : null);
     fetchLive(box, true).then(function () { setTrafInfo(); toast(live.ok.tomtom === false || live.ok.here === false ? "Een sleutel werkt niet. Controleer hem." : "Opgeslagen."); });
   };
+  $("s-moes").checked = S.moes; $("s-moes").onchange = function () { S.moes = this.checked; saveS(); updateMoes(); };
   $("s-avoid").checked = S.avoid; $("s-avoid").onchange = function () { S.avoid = this.checked; saveS(); if (st.routes.length && !st.nav) { st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes(); } };
   $("clearmine").onclick = function () { mine = []; store("mine", mine); drawCams(); setFlitsInfo(); toast("Je meldingen zijn gewist."); };
   $("simulate").onclick = startSim;
@@ -1210,6 +1232,7 @@ var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
 
 /* ---------- start ---------- */
+if (window.Mascot) { moes = new Mascot($("moes")); updateMoes(); }
 wire(); chooseEngine(initMap); setFlitsInfo(); setTrafInfo();
 loadFlitsers(); loadTraffic(); fbInit(); startGps();
 setInterval(loadTraffic, 10 * 60 * 1000);
