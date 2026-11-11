@@ -1534,7 +1534,7 @@ function moesTap() {
   if (!moes) return;
   moesTapAt = Date.now(); /* na aanraken even geen gapen/uitrekken: hij is juist wakker en vrolijk */
   TAPS++; clearTimeout(tapT); tapT = setTimeout(function () { TAPS = 0; }, 2500);
-  var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Smiesh.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Ik let op flitsers voor je!"];
+  var kmh = Math.round(st.speed * 3.6), lines = ["Hoi! Ik ben Smiesh.", "Hihi, dat kietelt!", "Rij je voorzichtig?", "Smiesh let op flitsers voor je!", "Smiesh tot je dienst!", "Moes? Nee joh, ik heet Smiesh!"];
   if (st.nav && st.route && st.along != null) lines.push("Nog " + N.fmtDur(N.remainingTime(st.route, st.along)) + " rijden!", "Nog " + N.fmtDist(Math.max(0, st.route.distance - st.along)) + "!");
   if (kmh > 5) lines.push("We gaan " + kmh + " km/u!");
   /* slaapt hij? dan schrikt hij eerst wakker, wrijft in zijn ogen en blijft daarna een tijdje wakker */
@@ -1787,7 +1787,7 @@ if (window.Mascot) {
   $("moes").addEventListener("pointerdown", function () {
     clearTimeout(holdT); holdT = setTimeout(function () {
       if (moes.state === "sleepy") return; moesHeld = true; vibrate(20);
-      moes.play("tickle", true); moes.say(["Hihihi! Niet kietelen!", "Haha, stop! Hihi!", "Dat kriebelt!"][Math.floor(Math.random() * 3)], 2000);
+      moes.play("tickle", true); moes.say(["Hihihi! Niet kietelen!", "Haha, stop! Hihi!", "Smiesh is kietelig!"][Math.floor(Math.random() * 3)], 2000);
     }, 550);
   });
   ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { $("moes").addEventListener(ev, function () { clearTimeout(holdT); }); });
