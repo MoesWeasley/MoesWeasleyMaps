@@ -8,7 +8,7 @@ var $ = function (id) { return document.getElementById(id); };
 /* ---------- opslag ---------- */
 function load(k, d) { try { var v = localStorage.getItem("mn_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
 function store(k, v) { try { localStorage.setItem("mn_" + k, JSON.stringify(v)); } catch (e) {} }
-var S = Object.assign({ voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto" }, load("set", {}));
+var S = Object.assign({ det: true, detThr: "12", voice: true, flits: true, traffic: true, avoid: true, flow: true, moes: true, theme: "auto", noToll: false, noMotorway: false, noFerry: false, moesVoice: true, saver: "auto" }, load("set", {}));
 function saveS() { store("set", S); }
 
 /* ---------- kleine hulpjes ---------- */
@@ -1248,7 +1248,7 @@ var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
   var inBar = st.nav, a = $(inBar ? "balert" : "alert");
   $(inBar ? "alert" : "balert").hidden = true;
-  a.className = (kind === "traffic" ? "traffic" : "") + (pulse ? " pulse" : "");
+  a.className = (kind === "traffic" ? "traffic" : kind === "hulp" ? "hulp" : "") + (pulse ? " pulse" : "");
   $(inBar ? "batitle" : "atitle").textContent = title; $(inBar ? "batext" : "atext").textContent = text;
   var ic = $(inBar ? "baicon" : "aicon"); if (ic.dataset.k !== kind) { ic.innerHTML = icon; ic.dataset.k = kind; }
   a.hidden = false;
@@ -1330,13 +1330,105 @@ function pauseCheck() {
 }
 setInterval(pauseCheck, 15000);
 
+/* ---------- hulpdienstdetector (MoesDetector via Bluetooth) ----------
+   Het bordje meet alleen hoe sterk er op de C2000-frequenties wordt uitgezonden en stuurt
+   "niveau,dB boven ruis,dBm,MHz". Hier wordt dat een melding in de balk, een stem en Moes. */
+var DET_SVC = "6d6f6573-6465-7465-6374-6f7200000001", DET_DATA = "6d6f6573-6465-7465-6374-6f7200000002", DET_CFG = "6d6f6573-6465-7465-6374-6f7200000003";
+var DET = { id: load("det_id", null), name: load("det_name", ""), connected: false, level: 0, prev: 0, ex: 0, f: 0, last: 0, active: false, episode: 0, quietSince: 0, said: -1, sim: null, retry: null };
+function bleP() { return NATIVE && PL.BluetoothLe; }
+function detStatus(t) { if ($("detinfo")) $("detinfo").textContent = t; if ($("detpair")) $("detpair").textContent = DET.id && bleP() ? "Ontkoppelen" : "Koppelen"; }
+function detStatusDefault() {
+  if (!bleP()) detStatus("Koppelen kan alleen in de app op je telefoon. Met 'Testen' zie je hoe een melding eruitziet.");
+  else if (!DET.id) detStatus("Nog niet gekoppeld. Zet het bordje aan en tik op Koppelen.");
+  else detStatus(DET.connected ? "Verbonden met " + (DET.name || "MoesDetector") + "." : "Gekoppeld met " + (DET.name || "MoesDetector") + ", verbinden…");
+}
+function hexOf(str) { return Array.prototype.map.call(str, function (c) { var h = c.charCodeAt(0).toString(16); return h.length < 2 ? "0" + h : h; }).join(" "); }
+function textOf(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v.trim().split(/\s+/).map(function (h) { return String.fromCharCode(parseInt(h, 16)); }).join("");
+  var b = v.buffer ? new Uint8Array(v.buffer, v.byteOffset || 0, v.byteLength) : new Uint8Array(v);
+  return Array.prototype.map.call(b, function (x) { return String.fromCharCode(x); }).join("");
+}
+function detPair() {
+  var B = bleP(); if (!B) { toast("Koppelen kan alleen in de app op je telefoon."); return; }
+  detStatus("Zoeken naar MoesDetector…");
+  B.initialize({ androidNeverForLocation: true }).then(function () {
+    return B.requestDevice({ services: [DET_SVC], optionalServices: [DET_SVC] });
+  }).then(function (dev) {
+    DET.id = dev.deviceId; DET.name = dev.name || "MoesDetector";
+    store("det_id", DET.id); store("det_name", DET.name);
+    detConnect();
+  }).catch(function () { detStatusDefault(); toast("Geen detector gekozen of gevonden.", true); });
+}
+function detConnect() {
+  var B = bleP(); if (!B || !DET.id || !S.det) return;
+  clearTimeout(DET.retry);
+  detStatusDefault();
+  B.initialize({ androidNeverForLocation: true }).then(function () {
+    try { B.addListener("disconnected|" + DET.id, function () { DET.connected = false; detStatusDefault(); clearTimeout(DET.retry); DET.retry = setTimeout(detConnect, 5000); }); } catch (e) {}
+    return B.connect({ deviceId: DET.id });
+  }).then(function () {
+    try { B.addListener("notification|" + DET.id + "|" + DET_SVC + "|" + DET_DATA, function (ev) { detData(textOf(ev && ev.value)); }); } catch (e) {}
+    return B.startNotifications({ deviceId: DET.id, service: DET_SVC, characteristic: DET_DATA });
+  }).then(function () {
+    DET.connected = true; detStatusDefault(); detSendThr();
+    toast("Hulpdienstdetector verbonden");
+  }).catch(function () {
+    DET.connected = false; detStatus("Detector niet bereikbaar. Staat hij aan? Opnieuw proberen…");
+    DET.retry = setTimeout(detConnect, 8000);
+  });
+}
+function detSendThr() {
+  var B = bleP(); if (!B || !DET.connected) return;
+  B.write({ deviceId: DET.id, service: DET_SVC, characteristic: DET_CFG, value: hexOf("T=" + S.detThr) }).catch(function () {});
+}
+function detForget() {
+  var B = bleP(); if (B && DET.id) { try { B.disconnect({ deviceId: DET.id }).catch(function () {}); } catch (e) {} }
+  DET.id = null; DET.name = ""; DET.connected = false; store("det_id", null); store("det_name", ""); detStatusDefault();
+}
+/* meting binnen: "niveau,dB,dBm,MHz" */
+function detData(txt) {
+  var p = String(txt || "").split(",");
+  if (p.length < 2) return;
+  var lvl = Math.max(0, Math.min(5, parseInt(p[0], 10) || 0)), now = Date.now();
+  DET.level = lvl; DET.ex = parseInt(p[1], 10) || 0; DET.f = parseFloat(p[3]) || 0; DET.last = now;
+  var wasActive = DET.active;
+  /* actief bij niveau 2+, of niveau 1 twee metingen achter elkaar */
+  DET.active = S.det && (lvl >= 2 || (lvl >= 1 && DET.prev >= 1));
+  if (DET.active && !wasActive && (!DET.quietSince || now - DET.quietSince > 45000 || DET.episode === 0)) DET.episode++;
+  if (!DET.active && wasActive) DET.quietSince = now;
+  DET.prev = lvl;
+  checkWarnings();
+}
+/* testen zonder bordje: een hulpdienst die nadert en weer wegrijdt */
+function detTest() {
+  if (DET.sim) return;
+  closeSheets(); toast("Test: een hulpdienst komt dichterbij…");
+  var seq = [0, 1, 1, 2, 3, 4, 5, 5, 4, 3, 2, 1, 0, 0, 0], i = 0;
+  DET.sim = setInterval(function () {
+    detData(seq[i] + "," + (seq[i] * 7) + ",-" + (100 - seq[i] * 9) + ",382.75");
+    if (++i >= seq.length) { clearInterval(DET.sim); DET.sim = null; }
+  }, 900);
+}
+var ICON_SIREN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18v-6a5 5 0 0110 0v6"/><path d="M5 18h14v3H5zM12 3v2M4.2 6.2l1.4 1.4M19.8 6.2l-1.4 1.4"/></svg>';
+function detAlert() {
+  if (!S.det || !DET.active || Date.now() - DET.last > 6000) return false;
+  var bars = "", lv = Math.max(1, DET.level);
+  for (var b = 1; b <= 5; b++) bars += b <= lv ? "●" : "○";
+  var near = lv >= 4 ? "heel dichtbij" : lv >= 2 ? "dichtbij" : "in de buurt";
+  showAlert("hulp", "Hulpdienst " + near, bars + " · maak ruimte", ICON_SIREN, lv >= 4);
+  alertFor = "h" + DET.episode; st.camMax = null; updateLimit();
+  if (DET.said !== DET.episode) { DET.said = DET.episode; vibrate([120, 60, 120]); say("Let op, hulpdienst in de buurt"); }
+  return true;
+}
+
 /* ---------- assistent Moes ---------- */
 var moes = null, stillSince = 0, lastMoesState = null, lastMoesDir = null, moesSeen = { key: null, until: 0, kind: "", fastOn: false, fastUntil: 0, fastCool: 0 };
 function moesLine(state, dir) {
   var DIRS = { "left": "Hier links!", "sharp left": "Scherp links!", "slight left": "Links aanhouden!", "right": "Hier rechts!", "sharp right": "Scherp rechts!",
     "slight right": "Rechts aanhouden!", "straight": "Rechtdoor!", "uturn": "Omkeren!" };
   if (state === "point") return st.nextMan && (st.nextMan.type === "roundabout" || st.nextMan.type === "rotary") ? "Rotonde!" : DIRS[dir] || null;
-  if (state === "shock") return "Flitser! Let op!";
+  if (state === "shock") return (alertFor || "").charAt(0) === "h" ? "Hulpdienst! Maak ruimte!" : "Flitser! Let op!";
   if (state === "fast") return "Rustig aan!";
   if (state === "worried") { var t = (alertFor || "").slice(1), x = activeTraffic().filter(function (i) { return String(i.id) === t; })[0]; return "Oei, " + ((x && TRAF[x.t]) ? TRAF[x.t].l.toLowerCase() : "drukte") + "…"; }
   if (state === "happy") return "Joepie, we zijn er!";
@@ -1391,7 +1483,7 @@ function updateMoes() {
   if (tooFast && !moesSeen.fastOn && now > moesSeen.fastCool) { moesSeen.fastOn = true; moesSeen.fastUntil = now + 2500; moesSeen.fastCool = now + 30000; }
   if (!tooFast) moesSeen.fastOn = false;
   var state = "idle", dir = null;
-  if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "c") state = "shock";
+  if (moesSeen.key && now < moesSeen.until && (moesSeen.kind === "c" || moesSeen.kind === "h")) state = "shock";
   else if (moesSeen.fastOn && now < moesSeen.fastUntil) state = "fast";
   else if (moesSeen.key && now < moesSeen.until && moesSeen.kind === "t") state = "worried";
   else if (st.happyUntil && now < st.happyUntil) state = "happy";
@@ -1408,6 +1500,7 @@ function updateMoes() {
 setInterval(updateMoes, 250);
 
 function checkWarnings() {
+  if (detAlert()) { updateMoes(); return; }
   var kmh = st.speed * 3.6, camHit = null, trafHit = null;
   var camRange = Math.max(400, st.speed * 22), trafRange = st.speed > 22 ? 2000 : st.speed > 14 ? 1200 : 600;
   if (st.nav && st.route && st.along != null) {
@@ -1541,6 +1634,10 @@ function wire() {
   $("bgallow").onclick = function () { askBackground(true); };
   if (!NATIVE) $("bgrow").hidden = true;
   setFavInfo();
+  $("s-det").checked = S.det; $("s-det").onchange = function () { S.det = this.checked; saveS(); if (S.det) detConnect(); else { DET.active = false; checkWarnings(); } };
+  $("detpair").onclick = function () { if (DET.id && bleP()) { detForget(); toast("Detector ontkoppeld"); } else detPair(); };
+  $("dettest").onclick = detTest;
+  seg("seg-det", "detThr", function () { detSendThr(); });
   $("s-avoid").checked = S.avoid; $("s-avoid").onchange = function () { S.avoid = this.checked; saveS(); if (st.routes.length && !st.nav) { st.sel = scoreRoutes(st.routes); renderAlts(); drawRoutes(); } };
   $("simulate").onclick = startSim;
 
@@ -1559,6 +1656,7 @@ function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk =
 
 /* ---------- start ---------- */
 applySaver(); setTimeout(checkBackground, 1200);
+detStatusDefault(); setTimeout(detConnect, 1500);
 if (window.Mascot) {
   moes = new Mascot($("moes")); updateMoes();
   $("moes").addEventListener("click", moesTap);

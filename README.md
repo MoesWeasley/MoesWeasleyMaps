@@ -66,6 +66,24 @@ Beide zijn gratis zonder creditcard. Maak een sleutel aan en plak hem in de app 
 De app vraagt meldingen op bij het kiezen van een route en daarna elke 5 minuten tijdens het rijden.
 Let op: een sleutel in de app is uit de APK te halen. Gebruik daarom een gratis account zonder betaalgegevens.
 
+## Hulpdienstdetector (MoesDetector, optioneel)
+
+Een klein bordje dat waarschuwt als er hulpdiensten in de buurt zijn, zoals de Target Blu Eye. Het meet alleen hoe sterk
+er op de C2000-frequenties van de voertuigen (380–386,5 MHz) wordt uitgezonden. Er wordt niets ontvangen, opgeslagen of ontcijferd.
+
+**Nodig:** Heltec WiFi LoRa 32 V3 in de **433 MHz-versie** (bijv. Tinytronics), USB-C-kabel en autolader.
+Voor meer bereik: een TETRA-antenne voor 380–400 MHz met SMA-male aansluiting.
+
+**Installeren:** open `https://moesweasley.github.io/MoesWeasleyMaps/flash/` op een computer in Chrome of Edge,
+sluit het bordje aan en klik op "Installeren op het bordje". Het programma staat in `detector/` (PlatformIO) en wordt
+door GitHub automatisch gebouwd (ook te downloaden als `moesdetector-firmware` onder Actions).
+
+**Koppelen:** in de app bij Instellingen > Hulpdienstdetector > Koppelen. Met "Testen" zie je hoe een melding eruitziet.
+Gevoeligheid stel je in de app in of met de PRG-knop op het bordje.
+
+Let op: dit is een experiment. De juiste gevoeligheid moet met testritten worden gevonden, en het telt alle
+C2000-gebruikers in de buurt, niet alleen voertuigen met zwaailicht.
+
 ## Gedeelde flitsermeldingen (optioneel)
 
 Vul in `config.js` bij `firebase` dezelfde gegevens in als bij sprintje. Dan zien beide apps elkaars meldingen

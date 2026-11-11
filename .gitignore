@@ -5,3 +5,4 @@ assets/
 __pycache__/
 *.jks
 *.keystore
+detector/.pio/

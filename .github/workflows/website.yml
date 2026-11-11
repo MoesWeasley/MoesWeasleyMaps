@@ -24,10 +24,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Kaartbibliotheek ophalen
         run: npm install --no-save --ignore-scripts maplibre-gl@4.7.1 mapbox-gl@3
       - name: Bestanden klaarzetten
         run: node prepare.js && touch www/.nojekyll
+      - name: Hulpdienstdetector bouwen (programma voor het bordje)
+        continue-on-error: true
+        run: |
+          pip install --quiet platformio esptool
+          pio run -d detector
+          B=detector/.pio/build/heltec_v3
+          mkdir -p www/flash
+          python -m esptool --chip esp32s3 merge_bin -o www/flash/moesdetector.bin --flash_mode dio --flash_size 8MB \
+            0x0 $B/bootloader.bin 0x8000 $B/partitions.bin \
+            0xe000 ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin \
+            0x10000 $B/firmware.bin
+          cp detector/flash/index.html detector/flash/manifest.json www/flash/
+      - name: Detector-programma klaarzetten om te downloaden
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: moesdetector-firmware
+          path: www/flash/moesdetector.bin
       - name: Naar gh-pages zetten
         run: |
           cd www

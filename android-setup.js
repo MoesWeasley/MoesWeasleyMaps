@@ -13,7 +13,12 @@ const lines = [
   '<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />',
   '<uses-permission android:name="android.permission.VIBRATE" />',
   '<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />',
-  '<uses-feature android:name="android.hardware.location.gps" android:required="false" />'
+  '<uses-feature android:name="android.hardware.location.gps" android:required="false" />',
+  '<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />',
+  '<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />',
+  '<uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />',
+  '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />',
+  '<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />'
 ];
 const missing = lines.filter(l => !xml.includes(l.match(/android:name="([^"]+)"/)[0]));
 if (missing.length) {

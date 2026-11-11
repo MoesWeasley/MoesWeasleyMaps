@@ -10,6 +10,7 @@ on:
       - '.github/workflows/ndw-data.yml'
       - 'flitsers.py'
       - '.github/workflows/flitsers.yml'
+      - 'detector/**'
 
 jobs:
   build:

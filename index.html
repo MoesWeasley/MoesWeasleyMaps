@@ -360,6 +360,11 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
 .stop button{width:22px;height:22px;border-radius:50%;background:rgba(22,23,61,.1);font-size:13px;line-height:1}
 /* spaarstand: doorlopende CSS-animaties stil */
 body.saver #moes .m-live,body.saver #moes .m-tail,body.saver #moes .zz,body.saver .x-sparks>*{animation-play-state:paused}
+/* hulpdienstmelding: blauw-rood, rustig knipperend */
+#balert.hulp,#alert.hulp{background:linear-gradient(110deg,rgba(40,90,255,.82),rgba(120,60,230,.75) 50%,rgba(255,40,80,.82));background-size:220% 100%;
+  animation:hulpGlow 1.6s ease-in-out infinite;color:#fff;text-shadow:0 1px 3px rgba(0,0,40,.35)}
+@keyframes hulpGlow{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+#balert.hulp.pulse,#alert.hulp.pulse{animation:hulpGlow .8s ease-in-out infinite}
 /* ======== Nachtmodus: donker glas, zachte kleuren ======== */
 body.dark{--ink:#eceeff;--mute:#b4b7e6;--bg:#0f0d24;--card:#1f1b3d;--hair:rgba(255,255,255,.12);
   --g-bg:rgba(28,22,66,.48);--g-bg-strong:rgba(28,22,66,.66);--g-edge:rgba(255,255,255,.16);
@@ -469,6 +474,9 @@ body.dark .seg button.on{background:rgba(160,135,255,.35);color:#fff}
     <input class="key" id="k-here" placeholder="HERE API-sleutel" autocomplete="off" spellcheck="false">
     <button class="small" id="savekeys" style="margin-top:8px">Opslaan</button></div>
   <label class="set"><span>Assistent Moes<small>Klein wezeltje naast je snelheid dat afslagen aanwijst en schrikt bij flitsers.</small></span><input type="checkbox" class="sw" id="s-moes"></label>
+  <label class="set"><span>Hulpdienstdetector<small id="detinfo">Nog niet gekoppeld.</small></span><input type="checkbox" class="sw" id="s-det"></label>
+  <div class="set"><span>Detector<small>Gevoeligheid: hoger = eerder melden, maar vaker vals alarm.</small></span><span><button class="small" id="detpair">Koppelen</button> <button class="small" id="dettest">Testen</button></span></div>
+  <div class="set"><span>Gevoeligheid</span><span class="seg" id="seg-det"><button data-v="16">Laag</button><button data-v="12">Normaal</button><button data-v="9">Hoog</button><button data-v="6">Max</button></span></div>
   <label class="set"><span>Drukte vermijden<small>Kies bij meerdere routes de route met de minste files, ongevallen en afsluitingen.</small></span><input type="checkbox" class="sw" id="s-avoid"></label>
   <label class="set"><span>Moes spreekt de aanwijzingen<small>De stem klinkt dan als Moes (iets hoger en vrolijker).</small></span><input type="checkbox" class="sw" id="s-moesvoice"></label>
   <div class="set" style="display:block"><span>Route-opties<small id="avoidinfo">Vermijden werkt met een Mapbox-sleutel.</small></span>

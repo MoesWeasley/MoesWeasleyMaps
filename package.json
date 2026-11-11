@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@capacitor-community/background-geolocation": "latest",
+    "@capacitor-community/bluetooth-le": "latest",
     "@capacitor-community/keep-awake": "latest",
     "@capacitor-community/text-to-speech": "latest",
     "@capacitor/android": "latest",
