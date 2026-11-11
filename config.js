@@ -7,6 +7,10 @@ window.NAVI_CFG = {
     "https://raw.githubusercontent.com/MoesWeasley/MoesWeasleyMaps/main/data/",
     "data/"
   ],
+  /* 3D-kaart: vul hier (of in de app bij Instellingen) een gratis Mapbox-sleutel in (account.mapbox.com).
+     Leeg = de gratis open kaart hieronder. */
+  mapboxToken: "",
+
   /* gratis kaart zonder sleutel */
   mapStyle: "https://tiles.openfreemap.org/styles/liberty",
   /* gratis routeplanners (OSRM); de eerste die antwoordt wint */

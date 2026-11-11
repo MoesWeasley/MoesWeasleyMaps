@@ -9,6 +9,8 @@ for (const f of ["maplibre-gl.js", "maplibre-gl.css"]) {
   if (fs.existsSync(ml + f)) fs.copyFileSync(ml + f, "www/lib/" + f);
   else console.log("Let op: " + f + " niet gevonden, de app laadt hem dan van internet");
 }
+const mb = "node_modules/mapbox-gl/dist/";
+for (const f of ["mapbox-gl.js", "mapbox-gl.css"]) if (fs.existsSync(mb + f)) fs.copyFileSync(mb + f, "www/lib/" + f);
 for (const f of ["flitsers.json", "verkeer.json"]) if (fs.existsSync("data/" + f)) fs.copyFileSync("data/" + f, "www/data/" + f);
 for (const f of ["icon-only.png", "icon-foreground.png", "icon-background.png"]) if (fs.existsSync(f)) fs.copyFileSync(f, "assets/" + f);
 console.log("Bestanden klaargezet in www/ en assets/");

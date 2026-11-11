@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 22
       - name: Kaartbibliotheek ophalen
-        run: npm install --no-save --ignore-scripts maplibre-gl@4.7.1
+        run: npm install --no-save --ignore-scripts maplibre-gl@4.7.1 mapbox-gl@3
       - name: Bestanden klaarzetten
         run: node prepare.js && touch www/.nojekyll
       - name: Naar gh-pages zetten

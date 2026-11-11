@@ -184,17 +184,48 @@ FloatMarker.prototype.update = function () {
 };
 function updateFloats() { for (var i = 0; i < floats.length; i++) floats[i].update(); }
 
+/* ---------- kaartmotor ----------
+   Met een Mapbox-sleutel: Mapbox GL v3 met de Standard-stijl (echte 3D-bomen, belichte gebouwen, monumenten).
+   Zonder sleutel: de gratis open kaart (MapLibre + OpenFreeMap). */
+var MAPBOX_TOKEN = load("key_mapbox", CFG.mapboxToken || "");
+var GL = null, MAPBOX = false;
+function loadCss(href) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l); }
+function chooseEngine(done) {
+  if (!MAPBOX_TOKEN) { GL = window.maplibregl; done(); return; }
+  function ok() { if (window.mapboxgl) { GL = window.mapboxgl; MAPBOX = true; GL.accessToken = MAPBOX_TOKEN; } else GL = window.maplibregl; done(); }
+  if (window.mapboxgl) { ok(); return; }
+  /* eerst de versie in de app, anders van internet */
+  loadCss("lib/mapbox-gl.css");
+  loadScript("lib/mapbox-gl.js").catch(function () {
+    loadCss("https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.css");
+    return loadScript("https://unpkg.com/mapbox-gl@3/dist/mapbox-gl.js");
+  }).then(ok, function () { toast("Mapbox laden lukte niet, gratis kaart gebruikt.", true, 5000); GL = window.maplibregl; done(); });
+}
+/* licht van de kaart volgt de tijd van de dag */
+function lightPreset() {
+  var h = new Date().getHours() + new Date().getMinutes() / 60;
+  return h >= 6.5 && h < 8.5 ? "dawn" : h >= 8.5 && h < 17.5 ? "day" : h >= 17.5 && h < 19.5 ? "dusk" : "night";
+}
+function mapboxLook() {
+  function cfg(k, v) { try { map.setConfigProperty("basemap", k, v); } catch (e) {} }
+  cfg("lightPreset", lightPreset()); cfg("theme", "default"); cfg("show3dObjects", true);
+  cfg("showPointOfInterestLabels", true); cfg("showTransitLabels", false);
+  /* fellere kleuren waar de stijl dat toestaat */
+  cfg("colorWater", "#49bfff"); cfg("colorGreenspace", "#7ee6a8"); cfg("colorMotorways", "#ffa45c"); cfg("colorTrunks", "#ffd166");
+}
+
 /* ---------- kaart ---------- */
 var map = null, mapReady = false, meMarker = null, destMarker = null;
 function initMap() {
-  if (!window.maplibregl) { toast("Kaart kon niet laden. Is er internet?", true, 6000); return; }
+  if (!GL) { toast("Kaart kon niet laden. Is er internet?", true, 6000); return; }
   var last = load("lastpos", null);
-  map = new maplibregl.Map({
-    container: "map", style: CFG.mapStyle, attributionControl: false,
-    center: last ? [last.lon, last.lat] : [5.29, 52.13], zoom: last ? 14 : 7, pitchWithRotate: true, maxPitch: 70
+  map = new GL.Map({
+    container: "map", style: MAPBOX ? "mapbox://styles/mapbox/standard" : CFG.mapStyle, attributionControl: false,
+    center: last ? [last.lon, last.lat] : [5.29, 52.13], zoom: last ? 14 : 7, pitchWithRotate: true, maxPitch: MAPBOX ? 75 : 70
   });
-  map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
-  map.on("load", function () { mapReady = true; styleMap(); addLayers(); setFlowLayer(); drawAll(); });
+  map.addControl(new GL.AttributionControl({ compact: true }), "bottom-right");
+  if (MAPBOX) { map.on("style.load", mapboxLook); setInterval(function () { if (mapReady) mapboxLook(); }, 10 * 60 * 1000); }
+  map.on("load", function () { mapReady = true; if (!MAPBOX) styleMap(); addLayers(); setFlowLayer(); drawAll(); });
   map.on("error", function (e) { if (!mapReady && e && e.error && /style|fetch/i.test(String(e.error.message))) toast("Kaartstijl niet bereikbaar.", true); });
   ["dragstart", "pitchstart", "rotatestart"].forEach(function (ev) {
     map.on(ev, function (e) { if (e.originalEvent && st.follow) { st.follow = false; $("recenter").hidden = !st.nav && !st.pos; } });
@@ -227,6 +258,7 @@ var TRAF = {
   evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
 };
 function addLayers() {
+  if (MAPBOX) { var add0 = map.addLayer.bind(map); map.addLayer = function (l, b) { if (!l.slot) l.slot = "top"; return add0(l, b); }; }
   map.addSource("alts", { type: "geojson", data: EMPTY });
   map.addSource("route", { type: "geojson", data: EMPTY, lineMetrics: true });
   map.addSource("cams", { type: "geojson", data: EMPTY });
@@ -646,7 +678,7 @@ function chooseDest(d) {
   $("alts").innerHTML = '<div class="alt sel"><div class="t">…</div><div class="d">Route berekenen</div></div>';
   $("routewarn").hidden = true;
   openSheet("routesheet");
-  if (!destMarker && window.maplibregl) {
+  if (!destMarker && GL) {
     var el = document.createElement("div"); el.className = "destpin";
     el.innerHTML = '<svg viewBox="0 0 34 44"><defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff4fa3"/><stop offset="1" stop-color="#ff9a3c"/></linearGradient></defs><path d="M17 1C8 1 1 8 1 17c0 12 16 26 16 26s16-14 16-26C33 8 26 1 17 1z" fill="url(#dg)" stroke="#fff" stroke-width="2"/><circle cx="17" cy="17" r="6" fill="#fff"/></svg>';
     destMarker = new FloatMarker(el, { anchor: "bottom" });
@@ -698,7 +730,7 @@ function drawRoutes() {
 }
 function fitRoutes() {
   if (!map || !st.routes.length) return;
-  var b = new maplibregl.LngLatBounds();
+  var b = new GL.LngLatBounds();
   st.routes.forEach(function (r) { r.coords.forEach(function (c) { b.extend(c); }); });
   var sh = $("routesheet").offsetHeight || 260;
   map.fitBounds(b, { padding: { top: 90, bottom: sh + 30, left: 40, right: 40 }, bearing: 0, pitch: 0, duration: 700, maxZoom: 16 });
@@ -1147,7 +1179,12 @@ function wire() {
   $("s-flits").checked = S.flits; $("s-flits").onchange = function () { S.flits = this.checked; saveS(); drawCams(); prepRouteWarnings(); if (!S.flits) hideAlert(); };
   $("s-traffic").checked = S.traffic; $("s-traffic").onchange = function () { S.traffic = this.checked; saveS(); drawTraffic(); prepRouteWarnings(); };
   $("s-flow").checked = S.flow; $("s-flow").onchange = function () { S.flow = this.checked; saveS(); setFlowLayer(); };
-  $("k-tomtom").value = KEYS.tomtom; $("k-here").value = KEYS.here;
+  $("k-tomtom").value = KEYS.tomtom; $("k-here").value = KEYS.here; $("k-mapbox").value = MAPBOX_TOKEN;
+  $("savemapbox").onclick = function () {
+    var v = $("k-mapbox").value.trim(); store("key_mapbox", v);
+    toast(v ? "Opgeslagen, de 3D-kaart wordt geladen…" : "Sleutel gewist, gratis kaart wordt geladen…");
+    setTimeout(function () { location.reload(); }, 900);
+  };
   $("savekeys").onclick = function () {
     KEYS.tomtom = $("k-tomtom").value.trim(); KEYS.here = $("k-here").value.trim();
     store("key_tomtom", KEYS.tomtom); store("key_here", KEYS.here); live.ok = {}; live.items = [];
@@ -1173,7 +1210,7 @@ var stopAsk = 0;
 function confirmStop() { if (Date.now() - stopAsk < 2500) return true; stopAsk = Date.now(); toast("Nog een keer terug om te stoppen"); return false; }
 
 /* ---------- start ---------- */
-wire(); initMap(); setFlitsInfo(); setTrafInfo();
+wire(); chooseEngine(initMap); setFlitsInfo(); setTrafInfo();
 loadFlitsers(); loadTraffic(); fbInit(); startGps();
 setInterval(loadTraffic, 10 * 60 * 1000);
 setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]), false); }, 5 * 60 * 1000);

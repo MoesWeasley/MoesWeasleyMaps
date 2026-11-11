@@ -5,7 +5,7 @@ Helemaal gratis: geen API-sleutels nodig.
 
 | Onderdeel | Bron |
 |---|---|
-| Kaart | OpenFreeMap (OpenStreetMap) |
+| Kaart | Mapbox Standard in 3D (met gratis sleutel), anders OpenFreeMap (OpenStreetMap) |
 | Routes en afslagen | OSRM (routing.openstreetmap.de, reserve: project-osrm.org) |
 | Adres zoeken | Photon (reserve: Nominatim) |
 | Flitsers | OpenStreetMap, elke nacht via GitHub (`flitsers.py`) + eigen meldingen |
@@ -47,6 +47,13 @@ npm run icons
 npm run sync
 npm run open
 ```
+
+## 3D-kaart met Mapbox (optioneel, aanrader)
+
+Maak een gratis account op account.mapbox.com en kopieer je standaardsleutel (begint met `pk.`).
+Plak hem in de app bij Instellingen > 3D-kaart (of in `config.js` bij `mapboxToken`).
+Je krijgt dan Mapbox Standard: 3D-bomen, belichte gebouwen, monumenten en licht dat meegaat met de tijd van de dag.
+Gratis tot 50.000 kaartladingen per maand. Zonder sleutel gebruikt de app de gratis open kaart.
 
 ## Live verkeer met TomTom en HERE (optioneel)
 

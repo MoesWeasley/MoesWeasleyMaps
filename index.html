@@ -361,6 +361,9 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
   <div class="set"><span>Stem testen<small id="voiceinfo">Hoor je niets? Installeer de Nederlandse stem via Android-instellingen &gt; Systeem &gt; Talen &gt; Tekst-naar-spraak.</small></span><button class="small" id="testvoice">Test</button></div>
   <label class="set"><span>Flitsmelder<small id="flitsinfo">Flitspalen, trajectcontroles en meldingen.</small></span><input type="checkbox" class="sw" id="s-flits"></label>
   <label class="set"><span>Verkeersinfo<small id="trafinfo">Files, ongevallen en afsluitingen van het NDW.</small></span><input type="checkbox" class="sw" id="s-traffic"></label>
+  <div class="set" style="display:block"><span>3D-kaart (Mapbox)<small id="mapboxinfo">Met een gratis Mapbox-sleutel: echte 3D-bomen, belichte gebouwen en monumenten. Zonder sleutel: de gratis open kaart.</small></span>
+    <input class="key" id="k-mapbox" placeholder="Mapbox-sleutel (pk.…)" autocomplete="off" spellcheck="false">
+    <button class="small" id="savemapbox" style="margin-top:8px">Opslaan</button></div>
   <label class="set"><span>Drukte op de kaart<small>Wegen kleuren groen, oranje of rood naar hoe druk het is (TomTom of HERE).</small></span><input type="checkbox" class="sw" id="s-flow"></label>
   <div class="set" style="display:block"><span>Live verkeer (TomTom / HERE)<small id="liveinfo">Vul een gratis sleutel in voor live files, ongevallen en drukte op de kaart.</small></span>
     <input class="key" id="k-tomtom" placeholder="TomTom API-sleutel" autocomplete="off" spellcheck="false">
@@ -370,7 +373,7 @@ body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
   <div class="set"><span>Mijn meldingen<small id="myinfo">Nog geen meldingen.</small></span><button class="small" id="clearmine">Wissen</button></div>
   <div class="set"><span>Rit simuleren<small>Rijdt de gekozen route na, handig om thuis te testen.</small></span><button class="small" id="simulate">Start</button></div>
   <button class="big ghost" style="width:100%;margin-top:10px" id="closesettings">Klaar</button>
-  <p class="foot">MoesWeasley Maps · MoesWeasley™<br>Kaart © OpenStreetMap-bijdragers, OpenFreeMap · Routes OSRM · Verkeer NDW</p>
+  <p class="foot">MoesWeasley Maps · MoesWeasley™<br>Kaart © OpenStreetMap-bijdragers, OpenFreeMap of Mapbox · Routes OSRM · Verkeer NDW</p>
 </div>
 
 <div id="toast" hidden></div>
