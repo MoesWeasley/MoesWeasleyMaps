@@ -191,7 +191,7 @@ var MAPBOX_TOKEN = load("key_mapbox", CFG.mapboxToken || "");
 var GL = null, MAPBOX = false;
 function loadCss(href) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; document.head.appendChild(l); }
 function chooseEngine(done) {
-  if (!MAPBOX_TOKEN) { GL = window.maplibregl; done(); return; }
+  if (!MAPBOX_TOKEN || CFG.noMapbox) { GL = window.maplibregl; if (MAPBOX_TOKEN && CFG.noMapbox) toast("Mapbox werkt niet in de demo, gratis kaart gebruikt.", false, 4000); done(); return; }
   function ok() { if (window.mapboxgl) { GL = window.mapboxgl; MAPBOX = true; GL.accessToken = MAPBOX_TOKEN; } else GL = window.maplibregl; done(); }
   if (window.mapboxgl) { ok(); return; }
   /* eerst de versie in de app, anders van internet */
@@ -216,6 +216,13 @@ function mapboxLook() {
 
 /* ---------- kaart ---------- */
 var map = null, mapReady = false, meMarker = null, destMarker = null;
+function freeMapFallback(why) {
+  if (!MAPBOX || mapReady) return;
+  toast(why + ", gratis kaart gebruikt.", true, 5000);
+  try { map.remove(); } catch (e) {}
+  floats.length = 0; meMarker = null; destMarker = null; map = null;
+  MAPBOX = false; GL = window.maplibregl; initMap();
+}
 function initMap() {
   if (!GL) { toast("Kaart kon niet laden. Is er internet?", true, 6000); return; }
   var last = load("lastpos", null);
@@ -224,7 +231,15 @@ function initMap() {
     center: last ? [last.lon, last.lat] : [5.29, 52.13], zoom: last ? 14 : 7, pitchWithRotate: true, maxPitch: MAPBOX ? 75 : 70
   });
   map.addControl(new GL.AttributionControl({ compact: true }), "bottom-right");
-  if (MAPBOX) { map.on("style.load", mapboxLook); setInterval(function () { if (mapReady) mapboxLook(); }, 10 * 60 * 1000); }
+  if (MAPBOX) {
+    map.on("style.load", mapboxLook); setInterval(function () { if (mapReady) mapboxLook(); }, 10 * 60 * 1000);
+    /* Mapbox laadt niet (geen internet, verkeerde sleutel)? Na 8 s of bij een fout terug naar de gratis kaart */
+    var fbT = setTimeout(function () { if (!mapReady) freeMapFallback("Mapbox laadt niet"); }, 8000);
+    map.on("error", function (e) {
+      var m = String((e && e.error && (e.error.status || e.error.message)) || "");
+      if (!mapReady && /401|403|token|Unauthorized|Forbidden|style/i.test(m)) { clearTimeout(fbT); freeMapFallback(/401|403|token|Unauthorized|Forbidden/i.test(m) ? "Mapbox-sleutel werkt niet" : "Mapbox laadt niet"); }
+    });
+  }
   map.on("load", function () { mapReady = true; if (!MAPBOX) styleMap(); addLayers(); setFlowLayer(); drawAll(); });
   map.on("error", function (e) { if (!mapReady && e && e.error && /style|fetch/i.test(String(e.error.message))) toast("Kaartstijl niet bereikbaar.", true); });
   ["dragstart", "pitchstart", "rotatestart"].forEach(function (ev) {
@@ -257,6 +272,50 @@ var TRAF = {
   snelheid: { l: "Snelheidsmaatregel", c: "#2f7bff", pen: 0 }, weer: { l: "Weersomstandigheden", c: "#4a90c2", pen: 0 },
   evenement: { l: "Evenement", c: "#8e6bff", pen: 0 }, overig: { l: "Verkeersmelding", c: "#7b80a0", pen: 0 }
 };
+/* ---------- 3D-bomen op de gratis kaart: stam + ronde kruin als 3D-blokjes ---------- */
+var TREE_COLS = ["#2fb86a", "#3cc777", "#25a35c", "#55d98c", "#2ec27e"];
+function treeShape(lon, lat, r, n) { /* veelhoek rond een punt, r in meters */
+  var k = Math.cos(lat * Math.PI / 180), c = [];
+  for (var i = 0; i <= n; i++) { var a = i / n * 2 * Math.PI; c.push([lon + r * Math.cos(a) / (111320 * k), lat + r * Math.sin(a) / 110540]); }
+  return c;
+}
+function treeFeatures(pts) {
+  var out = [];
+  pts.forEach(function (p, i) {
+    var s = p.s || 1, col = TREE_COLS[i % TREE_COLS.length];
+    out.push({ type: "Feature", properties: { b: 0, h: 3.2 * s, c: "#8a5a3c" }, geometry: { type: "Polygon", coordinates: [treeShape(p.lon, p.lat, 0.45 * s, 6)] } });
+    out.push({ type: "Feature", properties: { b: 2.6 * s, h: 7.5 * s, c: col }, geometry: { type: "Polygon", coordinates: [treeShape(p.lon, p.lat, 2.6 * s, 10)] } });
+    out.push({ type: "Feature", properties: { b: 7.5 * s, h: 9.6 * s, c: col }, geometry: { type: "Polygon", coordinates: [treeShape(p.lon, p.lat, 1.7 * s, 10)] } });
+  });
+  return { type: "FeatureCollection", features: out };
+}
+/* op de echte kaart: bomen laten groeien in de parken en bossen die in beeld zijn */
+var GREEN_LAYERS = [], treeT = null;
+function hash01(x) { x = Math.sin(x * 12.9898) * 43758.5453; return x - Math.floor(x); }
+function inRing(pt, ring) { var ins = false; for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) { var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi)) ins = !ins; } return ins; }
+function growTrees() {
+  if (MAPBOX || !mapReady || !map.getSource("mwtrees") || CFG.treesData) return;
+  if (map.getZoom() < 14.5 || !GREEN_LAYERS.length) { map.getSource("mwtrees").setData(EMPTY); return; }
+  var feats = []; try { feats = map.queryRenderedFeatures({ layers: GREEN_LAYERS.filter(function (id) { return map.getLayer(id); }) }); } catch (e) {}
+  var pts = [], grid = 0.00022; /* ~18-25 m tussen bomen */
+  feats.forEach(function (f) {
+    var g = f.geometry, polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+    var dense = /wood|forest/i.test(f.layer.id) ? 0.75 : 0.35;
+    polys.forEach(function (poly) {
+      var ring = poly[0], w = 180, s = 90, e = -180, n = -90;
+      ring.forEach(function (c) { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); });
+      for (var x = Math.floor(w / grid) * grid; x < e; x += grid) for (var y = Math.floor(s / grid) * grid; y < n; y += grid) {
+        if (pts.length > 700) return;
+        var hx = hash01(x * 1e5 + y * 3e5), hy = hash01(x * 7e5 - y * 2e5);
+        if (hash01(x * 9e5 + y * 5e5) > dense) continue;
+        var p = [x + hx * grid * 0.8, y + hy * grid * 0.8];
+        if (inRing(p, ring) && !poly.slice(1).some(function (hole) { return inRing(p, hole); })) pts.push({ lon: p[0], lat: p[1], s: 0.8 + hash01(x + y) * 0.6 });
+      }
+    });
+  });
+  map.getSource("mwtrees").setData(treeFeatures(pts));
+}
+
 function addLayers() {
   if (MAPBOX) { var add0 = map.addLayer.bind(map); map.addLayer = function (l, b) { if (!l.slot) l.slot = "top"; return add0(l, b); }; }
   map.addSource("alts", { type: "geojson", data: EMPTY });
@@ -267,6 +326,12 @@ function addLayers() {
   var ls = (map.getStyle() && map.getStyle().layers) || [], lastEx = -1, before;
   ls.forEach(function (l, i) { if (l.type === "fill-extrusion") lastEx = i; });
   for (var li = lastEx + 1; li < ls.length; li++) if (ls[li].type === "symbol") { before = ls[li].id; break; }
+  if (!MAPBOX) {
+    map.addSource("mwtrees", { type: "geojson", data: CFG.treesData ? treeFeatures(CFG.treesData) : EMPTY });
+    map.addLayer({ id: "mw-trees", type: "fill-extrusion", source: "mwtrees", minzoom: 14,
+      paint: { "fill-extrusion-color": ["get", "c"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.95 } }, before);
+    if (!CFG.treesData) { map.on("moveend", function () { clearTimeout(treeT); treeT = setTimeout(growTrees, 250); }); setTimeout(growTrees, 800); }
+  }
   map.addLayer({ id: "alts-case", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 7, 16, 16], "line-opacity": .9 } }, before);
   map.addLayer({ id: "alts-line", type: "line", source: "alts", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#b9a6ff", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 4, 16, 10], "line-opacity": .85 } }, before);
   map.addLayer({ id: "route-glow", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#c24dff", "line-opacity": .35, "line-blur": 8, "line-width": ["interpolate", ["linear"], ["zoom"], 8, 14, 16, 34] } }, before);
@@ -379,8 +444,8 @@ function styleMap() {
     if (t === "background") paint(l.id, "background-color", "#efe8ff");
     else if (t === "fill" && /water|ocean|lake|sea/.test(id)) { paint(l.id, "fill-color", "#49bfff"); paint(l.id, "fill-opacity", 0.9); pattern(l.id, "mw-water"); }
     else if (t === "line" && /waterway|river|canal/.test(id)) paint(l.id, "line-color", "#49bfff");
-    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", "#52d98a"); pattern(l.id, "mw-wood"); }
-    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", "#7ee6a8"); pattern(l.id, "mw-park"); }
+    else if (t === "fill" && /wood|forest/.test(id)) { paint(l.id, "fill-color", "#52d98a"); pattern(l.id, "mw-wood"); GREEN_LAYERS.push(l.id); }
+    else if (t === "fill" && /park|grass|meadow|landcover|scrub|green|garden/.test(id)) { paint(l.id, "fill-color", "#7ee6a8"); pattern(l.id, "mw-park"); if (/park|wood|forest|garden/.test(id)) GREEN_LAYERS.push(l.id); }
     else if (t === "fill" && /pitch/.test(id)) paint(l.id, "fill-color", "#7ee6a8");
     else if (t === "fill-extrusion" && /building/.test(id)) { has3d = true; paint(l.id, "fill-extrusion-color", BUILD_COL); paint(l.id, "fill-extrusion-opacity", 0.88); }
     else if (t === "fill" && /building/.test(id)) paint(l.id, "fill-color", "#f1d4ff");
