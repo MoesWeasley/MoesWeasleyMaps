@@ -958,6 +958,7 @@ function startNav() {
   closeSheets(); document.body.classList.add("nav");
   $("top").hidden = true; $("banner").hidden = false; $("navbar").hidden = false;
   drawRoutes(); keepAwake(true);
+  if (moes && S.moes) { moes.play("hop", true); moes.say("Op pad!", 1500); }
   var first = r.steps[1];
   say("De route is gestart." + (first && !first.silent ? " " + (first.startDist > 200 ? "Over " + N.sayDist(first.startDist) + ", " + lc(first.voice) : first.voice) + "." : ""));
   if (first) st.said[1 + "p"] = true;
@@ -1521,8 +1522,22 @@ function moesIdle() {
   if (!moes || !S.moes || document.hidden) return;
   if (moes.state === "sleepy") { if (Math.random() < 0.3) moes.play("yawn"); return; }
   if (moes.state !== "idle") return;
-  var acts = ["look", "look", "wave", "scratch", "yawn"], a = acts[Math.floor(Math.random() * acts.length)];
-  if (moes.play(a) && a === "wave" && Math.random() < 0.5) moes.say(["Hallo!", "Hoi hoi!", "Gezellig!"][Math.floor(Math.random() * 3)], 1800);
+  var late = isDark(), driving = st.speed > 3;
+  var acts = ["look", "look", "wave", "scratch", "yawn", "look"];
+  if (late) acts.push("yawn", "yawn");          /* 's avonds vaker gapen */
+  if (!driving && !st.nav) acts.push("stretch", "stretch");
+  if (Math.random() < 0.06) acts = ["sneeze"]; /* heel soms niezen */
+  /* stilstaan of rustig rijden: tijd voor een hapje, drankje of een spelletje */
+  if (!st.nav || !st.nextMan || st.nextMan.dist > 1500) { acts.push("drink"); if (!driving) acts.push("eat", "game", "game"); else acts.push("eat"); }
+  var a = acts[Math.floor(Math.random() * acts.length)];
+  if (!moes.play(a)) return;
+  if (a === "eat") { moes.say(["Mmm, hamburger!", "Even een hapje…", "Smikkel smikkel"][Math.floor(Math.random() * 3)], 1800); setTimeout(function () { if (moes.act === null && moes.state === "idle") moes.say("Lekker!", 1300); }, 4800); }
+  if (a === "drink") moes.say(["Slurp…", "Even wat drinken", "Glug glug"][Math.floor(Math.random() * 3)], 1600);
+  if (a === "game") { moes.say("Even een spelletje!", 1600); setTimeout(function () { if (moes.act !== null || moes.state !== "idle") return; if (Math.random() < 0.6) { moes.play("hop", true); moes.say("Yes! Gewonnen!", 1600); } else moes.say("Ahh, game over…", 1600); }, 6200); }
+  if (a === "wave" && Math.random() < 0.5) moes.say(["Hallo!", "Hoi hoi!", "Gezellig!"][Math.floor(Math.random() * 3)], 1800);
+  if (a === "sneeze") setTimeout(function () { moes.say("Hatsjoe!", 1300); }, 600);
+  if (a === "stretch" && Math.random() < 0.4) moes.say(late ? "Pfoe, het is al laat…" : "Even uitrekken…", 1800);
+  if (a === "yawn" && late && Math.random() < 0.3) moes.say("Gaaap…", 1400);
 }
 /* draaien en optrekken van de auto doorgeven, zodat Moes meeleunt */
 var motionPrev = null;
@@ -1731,10 +1746,24 @@ applySaver(); setTimeout(checkBackground, 1200);
 detStatusDefault(); setTimeout(detConnect, 1500);
 if (window.Mascot) {
   moes = new Mascot($("moes")); updateMoes();
-  $("moes").addEventListener("click", moesTap);
+  $("moes").addEventListener("click", function () { if (moesHeld) { moesHeld = false; return; } moesTap(); });
+  var holdT = null, moesHeld = false;
+  $("moes").addEventListener("pointerdown", function () {
+    clearTimeout(holdT); holdT = setTimeout(function () {
+      if (moes.state === "sleepy") return; moesHeld = true; vibrate(20);
+      moes.play("tickle", true); moes.say(["Hihihi! Niet kietelen!", "Haha, stop! Hihi!", "Dat kriebelt!"][Math.floor(Math.random() * 3)], 2000);
+    }, 550);
+  });
+  ["pointerup", "pointerleave", "pointercancel"].forEach(function (ev) { $("moes").addEventListener(ev, function () { clearTimeout(holdT); }); });
+  /* Moes kijkt mee naar waar je op het scherm tikt */
+  document.addEventListener("pointerdown", function (e) { if (moes && S.moes && !$("moes").contains(e.target)) moes.lookAt(e.clientX, e.clientY); }, true);
   setTimeout(moesIdle, 5000);
   setInterval(moesMotion, 250);
-  setTimeout(function () { if (S.moes) { moes.play("wave", true); moes.say("Hoi! Ik ben Moes.", 2200); } }, 1500);
+  setTimeout(function () {
+    if (!S.moes) return;
+    var h = new Date().getHours(), g = h < 6 ? "Wat ben je vroeg op!" : h < 12 ? "Goedemorgen!" : h < 18 ? "Goedemiddag!" : "Goedenavond!";
+    moes.play("wave", true); moes.say(g + " Ik ben Moes.", 2400);
+  }, 1500);
 }
 wire(); chooseEngine(initMap); setFlitsInfo(); setTrafInfo();
 loadFlitsers(); loadTraffic(); fbInit(); startGps();
@@ -1743,5 +1772,5 @@ setInterval(function () { if (st.nav && st.route) fetchLive(routesBox([st.route]
 setInterval(function () { if (!st.nav) drawCams(); }, 5 * 60 * 1000); /* verlopen meldingen weghalen */
 
 /* voor tests */
-window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG };
+window.__mn = { FloatMarker: FloatMarker, st: st, map: function () { return map; }, ready: function () { return mapReady; }, chooseDest: chooseDest, startSim: startSim, onPos: onPos, maneuverSVG: maneuverSVG, moes: function () { return moes; }, moesTap: moesTap };
 })();

@@ -234,6 +234,39 @@ body.nav #moes{bottom:calc(var(--sb) + 186px)}
 #moes .m-armL,#moes .m-armLi{transform-origin:37px 79px}
 #moes .m-armR,#moes .m-armRi{transform-origin:63px 79px}
 #moes .m-earL{transform-origin:28px 28px}
+#moes .m-footL{transform-origin:33px 110px}
+#moes .m-footR{transform-origin:67px 110px}
+#moes.a-stretch .m-live{animation:mStretch 2.2s ease-in-out}
+@keyframes mStretch{40%,60%{transform:scale(.97,1.07) translateY(-2px)}}
+#moes.a-sneeze .m-head{animation:mSneeze 1.5s ease-in-out}
+@keyframes mSneeze{0%,100%{translate:0 0}35%{translate:0 -3px;rotate:-9deg}48%{translate:0 2px;rotate:7deg}60%{translate:0 0;rotate:0deg}}
+#moes.a-sneeze .m-live{animation:mSneezeB 1.5s ease-in-out}
+@keyframes mSneezeB{48%{transform:scale(1.05,.94)}}
+#moes.a-hop .m-live{animation:mHop .45s ease-in-out 3}
+#moes .px{opacity:0;transition:opacity .25s ease}
+#moes[data-s=yum] .f-happy,#moes[data-s=yum] .m-blush{opacity:1}
+#moes.a-eat .p-burger,#moes.a-drink .p-drink,#moes.a-game .p-game{opacity:1}
+#moes.a-eat .mm,#moes.a-drink .mm{opacity:0!important}
+#moes.a-eat .m-talk{opacity:1!important}
+#moes.a-eat .p-bob{animation:mBob .5s ease-in-out infinite alternate}
+@keyframes mBob{from{transform:translateY(0)}to{transform:translateY(-1.6px)}}
+#moes.a-eat .p-bite{transform-origin:50px 70px;animation:mGone 4.4s steps(4) forwards}
+@keyframes mGone{to{transform:scale(.45)}}
+#moes.a-eat .m-blush,#moes.a-drink .m-blush,#moes.a-game .m-blush{opacity:.95}
+#moes .p-crumbs{opacity:0}#moes.a-eat .p-crumbs{animation:mCrumb 1s ease-in 1s 3}
+@keyframes mCrumb{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(10px)}}
+#moes.a-drink .p-juice{animation:mSip 3.4s ease-in forwards}
+@keyframes mSip{to{transform:translateY(10px)}}
+#moes.a-game .m-armLi{animation:mThumb .18s ease-in-out infinite alternate}
+#moes.a-game .m-armRi{animation:mThumb .23s ease-in-out infinite alternate-reverse}
+@keyframes mThumb{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}
+#moes.a-game .p-scr{animation:mScr .9s steps(2) infinite}
+@keyframes mScr{50%{fill:#9cf0ff}}
+#moes.a-game .p-pix{animation:mSnake 1.6s steps(4) infinite}
+@keyframes mSnake{to{transform:translateX(5px)}}
+#moes.a-game .p-dot{animation:mDot 1.6s steps(1) infinite}
+@keyframes mDot{50%{transform:translate(-6px,2px)}}
+#moes.a-stretch .x-zz,#moes.a-sneeze .x-zz{opacity:0!important}
 #moes .m-earR{transform-origin:72px 28px}
 #moes .m-fingerL,#moes .m-fingerR{opacity:0;transition:opacity .3s ease .15s}
 #moes .m-tail{transform-origin:66px 97px;animation:mTail 2.9s ease-in-out infinite}
