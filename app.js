@@ -652,7 +652,7 @@ function frame(now) {
     anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
     anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
   }
-  var following = st.follow && (st.nav || st.drive || st.freeFollow);
+  var following = st.follow && (st.nav || st.drive || st.freeFollow) && !(anim.camLock && now < anim.camLock);
   /* tijdens navigeren staat de pijl vast op het scherm en draait de kaart eronder: geen trilling */
   var fixed = following && (st.nav || st.drive);
   /* vaste pijl: draaien met het verschil tussen weg en kaart, zodat hij altijd recht op de weg staat */
@@ -934,13 +934,28 @@ function startNav() {
   if (st.pos) onPos({ lat: st.pos.lat, lon: st.pos.lon, acc: st.acc, speed: st.speed, heading: st.heading, t: Date.now() }, !!st.sim);
   else navUpdate(0);
 }
+/* lopende en nog geplande gesproken aanwijzingen meteen stoppen */
+function voiceStop() {
+  if (NATIVE && PL.TextToSpeech) { try { PL.TextToSpeech.stop().catch(function () {}); } catch (e) {} }
+  if (window.speechSynthesis) { try { speechSynthesis.cancel(); } catch (e) {} }
+}
 function stopNav(silent) {
-  st.nav = false; st.route = null; stopSim();
+  voiceStop(); clearTimeout(st.arriveT);
+  /* nog aan het rijden? dan vloeiend door naar rijmodus (kaart blijft volgen, waarschuwingen blijven) */
+  if (!silent && st.nav && st.speed > 3 && !st.sim) {
+    st.arrived = false; toDrive(); toast("Route gestopt");
+    return;
+  }
+  st.nav = false; st.route = null; stopSim(); st.arrived = false; st.freeFollow = false;
+  anim.aRoute = null; anim.aTo = anim.aFrom = null; st.roadLimit = null;
+  $("banner").classList.remove("arrived", "leaving"); $("navbar").classList.remove("leaving");
   document.body.classList.remove("nav");
   $("top").hidden = false; $("banner").hidden = true; $("navbar").hidden = true; $("then").hidden = true; $("recenter").hidden = true;
   hideAlert(); keepAwake(false);
   $("navarrow").hidden = true; $("street").hidden = true; $("guide").hidden = true; document.body.classList.remove("guide"); if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
-  if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 600 });
+  /* camera rustig terug naar plat en noord-boven; zolang dat loopt mag niets anders de camera bewegen */
+  if (map) { anim.camLock = performance.now() + 900; map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 700 }); }
+  updateLimit(); updateMoes();
   if (!silent) cancelRoute(); else { st.routes = []; drawRoutes(); if (destMarker) destMarker.remove(); }
 }
 function lc(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
@@ -994,7 +1009,7 @@ function arrive() {
   $("broad").textContent = last ? last.text : "";
   $("bicon").innerHTML = maneuverSVG({ kind: "arrive" });
   $("eta").textContent = hhmm(new Date()); $("remt").textContent = "aangekomen"; $("remd").textContent = "";
-  setTimeout(function () { if (st.arrived && st.nav) toDrive(); }, 4500);
+  clearTimeout(st.arriveT); st.arriveT = setTimeout(function () { if (st.arrived && st.nav) toDrive(); }, 4500);
 }
 /* na aankomst: vloeiend over naar rijmodus zonder route (kaart volgt, flitsers en verkeer blijven werken) */
 function fadeOut(el, cls, ms, done) {
@@ -1002,6 +1017,7 @@ function fadeOut(el, cls, ms, done) {
   setTimeout(function () { el.hidden = true; el.classList.remove(cls); if (done) done(); }, ms || 450);
 }
 function toDrive() {
+  voiceStop(); stopSim(); anim.aRoute = null; anim.aTo = anim.aFrom = null;
   st.nav = false; st.route = null; st.arrived = false; st.drive = true; st.follow = true;
   st.routes = []; st.roadLimit = null; anim.aRoute = null;
   document.body.classList.remove("nav", "guide"); document.body.classList.add("drive");
@@ -1028,7 +1044,7 @@ function stopDrive() {
   $("street").hidden = true; $("navarrow").hidden = true; $("recenter").hidden = true;
   if (meMarker) { meMarker.getElement().style.visibility = ""; if (anim.cur) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); } }
   keepAwake(false); anim.zoom = null;
-  if (map) map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 700 });
+  if (map) { anim.camLock = performance.now() + 900; map.easeTo({ pitch: 0, bearing: 0, padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: 700 }); }
 }
 function reroute() {
   if (st.rerouting || !st.dest || !st.pos) return;
@@ -1069,7 +1085,7 @@ function startSim() {
   if (!st.nav) startNav();
   toast("Simulatie gestart");
 }
-function stopSim() { if (st.sim) { clearInterval(st.sim); st.sim = null; } }
+function stopSim() { if (st.sim) { clearInterval(st.sim); st.sim = null; st.speed = 0; $("spd").textContent = "0"; } }
 
 /* ---------- flitsers ---------- */
 var natData = load("flitsers", null), mine = load("mine", []), community = [];
