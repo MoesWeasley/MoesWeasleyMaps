@@ -380,24 +380,29 @@ function frame(now) {
     /* over de afgeronde lijn, zodat de pijl een boog rijdt in plaats van een knik */
     anim.cur = N.smoothAt(st.route, anim.aCur);
     /* richting: naar een punt verderop (verder bij hogere snelheid), zodat de kaart al vóór de bocht indraait */
-    var look = Math.max(18, Math.min(60, st.speed * 2.2));
+    var look = Math.max(14, Math.min(45, st.speed * 1.8));
     var ahead = N.smoothAt(st.route, anim.aCur + look);
     var want = N.distM(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) > 2 ? N.bearing(anim.cur.lat, anim.cur.lon, ahead.lat, ahead.lon) : anim.rot;
     /* even snel draaien op elk toestel: tijdsafhankelijk bijsturen (halfwaardetijd ~0,25 s) */
     var dtf = anim.lastFrame ? Math.min(0.1, (now - anim.lastFrame) / 1000) : 0.016;
     anim.rot = angLerp(anim.rot, want, 1 - Math.exp(-dtf / 0.36));
+    /* de pijl zelf volgt de weg precies op de plek waar hij staat (raaklijn), los van de rustig draaiende kaart */
+    var pb = N.smoothAt(st.route, Math.max(0, anim.aCur - 4)), pf = N.smoothAt(st.route, anim.aCur + 4);
+    anim.tan = N.distM(pb.lat, pb.lon, pf.lat, pf.lon) > 1 ? N.bearing(pb.lat, pb.lon, pf.lat, pf.lon) : anim.rot;
   } else {
-    anim.aCur = null;
+    anim.aCur = null; anim.tan = null;
     anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
     anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
   }
   var following = st.follow && (st.nav || st.freeFollow);
   /* tijdens navigeren staat de pijl vast op het scherm en draait de kaart eronder: geen trilling */
   var fixed = following && st.nav;
+  /* vaste pijl: draaien met het verschil tussen weg en kaart, zodat hij altijd recht op de weg staat */
+  if (fixed) { var dd = anim.tan != null ? ((anim.tan - anim.rot + 540) % 360) - 180 : 0; $("navarrow").style.transform = "rotate(" + dd.toFixed(1) + "deg)"; }
   $("navarrow").hidden = !fixed;
   if (meMarker) {
     meMarker.getElement().style.visibility = fixed ? "hidden" : "";
-    if (!fixed) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); }
+    if (!fixed) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.tan != null ? anim.tan : anim.rot); }
   }
   if (following) {
     var cam = { center: [anim.cur.lon, anim.cur.lat] };
