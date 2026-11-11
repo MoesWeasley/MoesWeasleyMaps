@@ -221,22 +221,49 @@ function onPos(p, simulated) {
     else if (st.offCount === 0) navUpdate(loc.along);
   }
   if (map && meMarker) {
-    meMarker.setLngLat([show.lon, show.lat]);
-    if (camBearing != null) meMarker.setRotation(camBearing);
     if (!meMarker._map) meMarker.addTo(map);
     meMarker.getElement().classList.toggle("nofix", false);
   }
   if (!gotFix) { gotFix = true; if (map && !st.dest) map.jumpTo({ center: [p.lon, p.lat], zoom: 15 }); }
-  if (map && st.follow && (st.nav || st.freeFollow)) {
-    var h = window.innerHeight;
-    map.easeTo({
-      center: [show.lon, show.lat], bearing: st.nav && camBearing != null ? camBearing : map.getBearing(),
-      zoom: st.nav ? (st.speed > 25 ? 14.6 : st.speed > 14 ? 15.6 : 16.6) : map.getZoom(), pitch: st.nav ? 55 : map.getPitch(),
-      padding: st.nav ? { top: h * 0.42, bottom: 0, left: 0, right: 0 } : { top: 0, bottom: 0, left: 0, right: 0 },
-      duration: simulated ? 480 : 900, easing: function (t) { return t; }
-    });
-  }
+  animTo(show.lat, show.lon, camBearing);
   checkWarnings();
+}
+
+/* ---------- vloeiende beweging ----------
+   GPS geeft ongeveer 1 positie per seconde. Pijl en kaart glijden elk beeldje (60 per seconde)
+   van de vorige naar de nieuwe positie, in de tijd tussen twee posities. */
+var anim = { cur: null, from: null, to: null, rot: 0, rotFrom: 0, rotTo: 0, t0: 0, dur: 1000, last: 0, running: false, zoom: null, pitch: 0 };
+function angLerp(a, b, t) { var d = ((b - a + 540) % 360) - 180; return (a + d * t + 360) % 360; }
+function animTo(lat, lon, rot) {
+  var now = performance.now(), gap = anim.last ? now - anim.last : 1000;
+  anim.last = now;
+  anim.from = anim.cur || { lat: lat, lon: lon };
+  if (anim.cur && N.distM(anim.cur.lat, anim.cur.lon, lat, lon) > 400) anim.from = { lat: lat, lon: lon }; /* grote sprong: direct */
+  anim.to = { lat: lat, lon: lon };
+  anim.rotFrom = anim.rot; anim.rotTo = rot == null ? anim.rot : rot;
+  anim.t0 = now; anim.dur = Math.max(200, Math.min(1500, gap * 1.08));
+  if (!anim.running) { anim.running = true; requestAnimationFrame(frame); }
+}
+function frame(now) {
+  if (!anim.to || !map) { anim.running = false; return; }
+  var t = Math.min(1, (now - anim.t0) / anim.dur);
+  anim.cur = { lat: anim.from.lat + (anim.to.lat - anim.from.lat) * t, lon: anim.from.lon + (anim.to.lon - anim.from.lon) * t };
+  anim.rot = angLerp(anim.rotFrom, anim.rotTo, t);
+  if (meMarker) { meMarker.setLngLat([anim.cur.lon, anim.cur.lat]); meMarker.setRotation(anim.rot); }
+  var following = st.follow && (st.nav || st.freeFollow);
+  if (following) {
+    var cam = { center: [anim.cur.lon, anim.cur.lat] };
+    if (st.nav) {
+      var zt = st.speed > 25 ? 14.6 : st.speed > 14 ? 15.6 : 16.6;
+      anim.zoom = anim.zoom == null ? map.getZoom() : anim.zoom + (zt - anim.zoom) * 0.04;
+      anim.pitch = anim.pitch + (55 - anim.pitch) * 0.06;
+      cam.bearing = anim.rot; cam.zoom = anim.zoom; cam.pitch = anim.pitch;
+      cam.padding = { top: window.innerHeight * 0.42, bottom: 0, left: 0, right: 0 };
+    }
+    map.jumpTo(cam);
+  } else { anim.zoom = null; anim.pitch = map.getPitch ? map.getPitch() : 0; }
+  /* blijven lopen zolang we nog onderweg zijn naar de laatste positie, of tijdens navigeren */
+  if (t < 1 || (st.nav && following)) requestAnimationFrame(frame); else anim.running = false;
 }
 
 /* ---------- zoeken ---------- */
