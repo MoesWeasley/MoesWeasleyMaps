@@ -98,16 +98,13 @@ function renderGuide(s, dist) {
     g.innerHTML = (lanes ? '<div class="lanes">' + lanesHTML(lanes, s.mod || "straight") + "</div>" : "") +
       (sign ? '<div class="sign"><div class="srow">' + (s.exits ? '<span class="exit">' + esc(s.exits.split(";")[0]) + "</span>" : "") + sign.refs.map(shieldHTML).join("") +
         '<svg class="sarrow" viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(' + Math.max(-90, Math.min(90, arrowA)) + 'deg)"><path d="M16 28V6"/>' + head(16, 6, 0) + "</svg></div>" +
-        sign.places.slice(0, 3).map(function (p) { return '<div class="place">' + esc(p) + "</div>"; }).join("") + "</div>" : "");
+        '<span class="places">' + sign.places.slice(0, 3).map(esc).join(" · ") + "</span></div>" : "");
     g.dataset.key = key;
   }
   g.hidden = false; document.body.classList.add("guide"); placeAlert();
 }
 /* melding onder het bord/de rijstroken zetten als die zichtbaar zijn */
-function placeAlert() {
-  var g = $("guide"), a = $("alert");
-  a.style.top = !g.hidden && st.nav ? (g.getBoundingClientRect().bottom + 8) + "px" : "";
-}
+function placeAlert() {}
 function maneuverSVG(ic) {
   var o = '<svg viewBox="0 0 64 64" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">';
   ic = ic || { kind: "turn", mod: "straight" };
@@ -487,7 +484,7 @@ function origin() {
 }
 function fetchRoutes(from, to, heading) {
   var path = from.lon.toFixed(6) + "," + from.lat.toFixed(6) + ";" + to.lon.toFixed(6) + "," + to.lat.toFixed(6);
-  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=3&continue_straight=true";
+  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=3&continue_straight=true&annotations=maxspeed";
   if (heading != null && st.speed > 3) qs += "&bearings=" + Math.round(heading) + ",60;&radiuses=60;unlimited";
   return firstOk((CFG.routers || []).map(function (b) { return b + path + qs; }), 15000).then(function (d) {
     if (d.code !== "Ok" || !d.routes || !d.routes.length) throw new Error(d.message || "geen route");
@@ -609,10 +606,12 @@ function navUpdate(along) {
   $("remt").textContent = N.fmtDur(remT); $("remd").textContent = N.fmtDist(remD);
   if (remD < 30 && !st.arrived) { arrive(); return; }
   var i = N.nextStepIndex(r, along), s = r.steps[i], dist = Math.max(0, s.startDist - along);
+  st.roadLimit = N.speedAt(r, along);
   $("bicon").innerHTML = junctionSVG(s) || maneuverSVG(s.icon);
   renderGuide(s, dist);
   $("bdist").textContent = N.fmtDist(dist);
-  $("btext").textContent = s.type === "arrive" ? s.text : s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, "");
+  $("btext").textContent = s.type === "arrive" ? s.text : (s.type === "roundabout" || s.type === "rotary") && s.icon.exit ? "Rotonde, " + s.icon.exit + "e afslag" :
+    s.text.replace(/ naar .*$/, "").replace(/ richting .*$/, "");
   var extra = (s.text.match(/ (richting .*)$/) || [])[1];
   $("broad").textContent = s.road || (extra ? extra : "");
   var cur = r.steps[i - 1] && r.steps[i - 1].road; $("street").textContent = cur || ""; $("street").hidden = !cur;
@@ -857,10 +856,20 @@ function prepRouteWarnings() {
 }
 var alertFor = null;
 function showAlert(kind, title, text, icon, pulse) {
-  var a = $("alert"); a.className = kind === "traffic" ? "traffic" : ""; if (pulse) a.classList.add("pulse");
-  $("atitle").textContent = title; $("atext").textContent = text; $("aicon").innerHTML = icon; a.hidden = false; placeAlert();
+  var inBar = st.nav, a = $(inBar ? "balert" : "alert");
+  $(inBar ? "alert" : "balert").hidden = true;
+  a.className = (kind === "traffic" ? "traffic" : "") + (pulse ? " pulse" : "");
+  $(inBar ? "batitle" : "atitle").textContent = title; $(inBar ? "batext" : "atext").textContent = text;
+  var ic = $(inBar ? "baicon" : "aicon"); if (ic.dataset.k !== kind) { ic.innerHTML = icon; ic.dataset.k = kind; }
+  a.hidden = false;
 }
-function hideAlert() { $("alert").hidden = true; alertFor = null; $("limit").hidden = true; $("speed").classList.remove("over"); }
+function hideAlert() { $("alert").hidden = true; $("balert").hidden = true; alertFor = null; st.camMax = null; updateLimit(); }
+/* maximumsnelheid: van een flitser in de buurt, anders van de weg (OpenStreetMap) */
+function updateLimit() {
+  var lim = st.camMax || (st.nav ? st.roadLimit : null), kmh = st.speed * 3.6;
+  $("limit").hidden = !lim; $("limit").textContent = lim || "";
+  $("speed").classList.toggle("over", !!lim && kmh > lim + 3);
+}
 function checkWarnings() {
   var kmh = st.speed * 3.6, camHit = null, trafHit = null;
   var camRange = Math.max(400, st.speed * 22), trafRange = st.speed > 22 ? 2000 : st.speed > 14 ? 1200 : 600;
@@ -883,9 +892,7 @@ function checkWarnings() {
     var txt = N.fmtDist(camHit.d) + " · " + camLabel(c.type) + (c.max ? " · " + c.max + " km/u" : "") + (c.own ? " · jouw melding" : c.community ? " · gemeld" : "");
     var over = c.max && kmh > c.max + 2;
     showAlert("cam", c.type === "traject" ? "Let op trajectcontrole" : "Let op flitser", txt, ICON.cam, over);
-    alertFor = key;
-    $("limit").hidden = !c.max; $("limit").textContent = c.max || "";
-    $("speed").classList.toggle("over", !!over);
+    alertFor = key; st.camMax = c.max || null; updateLimit();
     if (!st.warned[key]) {
       st.warned[key] = true; vibrate();
       say((c.type === "traject" ? "Let op, trajectcontrole" : "Let op, " + lc(camLabel(c.type))) + " over " + N.sayDist(camHit.d) + (c.max ? ", maximaal " + c.max : ""));
@@ -896,11 +903,11 @@ function checkWarnings() {
     var tp = trafHit.p, tk = "t" + tp.id, tl = (TRAF[tp.t] || TRAF.overig).l;
     var extra = tp.delay >= 60 ? " · +" + Math.round(tp.delay / 60) + " min" : "";
     showAlert("traffic", tl, "Over " + N.fmtDist(trafHit.d) + " op je route" + extra + (tp.desc && tp.desc.toLowerCase() !== tl.toLowerCase() ? " · " + tp.desc : ""), ICON.warn, false);
-    alertFor = tk; $("limit").hidden = true; $("speed").classList.remove("over");
+    alertFor = tk; st.camMax = null; updateLimit();
     if (!st.warned[tk]) { st.warned[tk] = true; say("Let op, " + lc(tl) + " over " + N.sayDist(trafHit.d) + (tp.delay >= 120 ? ", ongeveer " + Math.round(tp.delay / 60) + " minuten vertraging" : "")); }
     return;
   }
-  if (alertFor) hideAlert();
+  if (alertFor) hideAlert(); else updateLimit();
 }
 
 /* ---------- Firebase (gedeelde meldingen, zelfde opslag als sprintje) ---------- */

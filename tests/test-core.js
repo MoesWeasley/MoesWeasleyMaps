@@ -66,3 +66,7 @@ const st2 = N.buildRoute({ legs: [{ steps: [{ maneuver: { type: "depart", locati
   intersections: [{ bearings: [0, 90, 180], in: 2, out: 1, lanes: [{ valid: true, indications: ["right"] }] }], destinations: "A4: Den Haag" }] }] }).steps[0];
 assert.strictEqual(st2.inter.out, 1); assert.strictEqual(st2.dest, "A4: Den Haag");
 console.log("Extra kerntests geslaagd");
+const rs = N.buildRoute({ geometry: { coordinates: [A, B, C] }, legs: [{ annotation: { maxspeed: [{ speed: 50, unit: "km/h" }, { unknown: true }] },
+  steps: [{ maneuver: { type: "depart", location: A }, name: "X", distance: 1500, duration: 100, geometry: { coordinates: [A, B, C] } }] }] });
+assert.strictEqual(N.speedAt(rs, 300), 50); assert.strictEqual(N.speedAt(rs, 1200), null);
+console.log("Snelheidstests geslaagd");

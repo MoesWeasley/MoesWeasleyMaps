@@ -215,6 +215,56 @@ body.guide #then{display:none}
 .me svg{width:30px;height:30px;filter:drop-shadow(0 2px 3px rgba(60,40,140,.4))}
 #navarrow{display:grid;place-items:center}
 #navarrow svg{width:40px;height:40px;filter:drop-shadow(0 3px 4px rgba(60,40,140,.45))}
+
+/* ======== Eén dynamische balk (compact) ======== */
+#banner{flex-direction:column;align-items:stretch;gap:8px;padding:10px 12px;border-radius:24px}
+.brow{display:flex;gap:12px;align-items:center;min-width:0}
+#banner .ic{width:50px;height:50px;border-radius:15px}
+#banner .ic svg{width:42px;height:42px}
+.btx{min-width:0;flex:1}
+.bline{display:flex;align-items:baseline;gap:10px;min-width:0}
+#bdist{font-size:26px;font-weight:800;line-height:1.1;flex:none}
+#btext{font-size:16px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#broad{font-size:13px;opacity:.88}
+#then{position:static;flex:none;display:flex;flex-direction:column;align-items:center;gap:0;padding:4px 7px 3px;border-radius:13px;font-size:10px;font-weight:700;
+  background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.04em}
+#then svg{width:26px;height:26px}
+body.guide #then{display:flex}
+#guide{position:static;display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;animation:grow .22s ease-out}
+#guide[hidden],#balert[hidden],#then[hidden]{display:none!important}
+@keyframes grow{from{opacity:0;transform:translateY(-6px)}}
+.lanes{padding:3px 6px;border-radius:14px;gap:2px;background:rgba(30,20,90,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.25);border:1px solid rgba(255,255,255,.25)}
+.lane{width:30px;height:30px;border-radius:9px}
+.lane.on{border-radius:9px;box-shadow:0 0 10px rgba(255,79,163,.6)}
+.lane svg{width:22px;height:22px}
+.sign{align-self:auto;min-width:0;max-width:100%;display:flex;align-items:center;gap:7px;padding:4px 10px;border-width:2px;border-radius:10px;
+  box-shadow:0 4px 12px rgba(20,40,120,.35);text-shadow:none}
+.sign .srow{margin:0;gap:5px;flex:none}
+.shield{font-size:13px;padding:0 6px;border-width:1.5px}
+.exit{font-size:12px;padding:0 5px}
+.sarrow{width:18px;height:18px;margin:0}
+.places{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* melding als strook onderin de balk */
+#balert{display:flex;gap:10px;align-items:center;padding:7px 10px;border-radius:16px;animation:grow .22s ease-out;
+  background:linear-gradient(120deg,rgba(255,40,90,.72),rgba(255,110,50,.68));border:1px solid rgba(255,255,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+#balert.traffic{background:linear-gradient(120deg,rgba(255,150,0,.78),rgba(255,196,50,.72));color:#3a2300;text-shadow:none}
+#balert .ai{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.5)}
+#balert .ai svg{width:20px;height:20px}
+.atx{min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.atx b{font-size:15px;font-weight:800}
+.atx span{font-size:13px;font-weight:600;opacity:.95}
+#balert.pulse{animation:pulse 1s infinite}
+/* buiten navigeren: kleine losse melding bovenin */
+#alert{left:50%;right:auto;transform:translateX(-50%);max-width:92vw;padding:8px 14px 8px 8px;gap:10px;border-radius:999px}
+#alert .ai{width:36px;height:36px}#alert .ai svg{width:22px;height:22px}
+#alert b{font-size:16px}#alert span{font-size:13px}
+@keyframes pop{from{opacity:0;transform:translateX(-50%) scale(.92)}}
+@keyframes pulse{50%{transform:translateX(-50%) scale(1.03)}}
+#balert.pulse{animation:pulse2 1s infinite}@keyframes pulse2{50%{transform:scale(1.02)}}
+/* maximumsnelheid: klein rondje aan de snelheidsbubbel */
+#limit{left:62px;bottom:calc(var(--sb) + 150px);width:36px;height:36px;border-width:4px;font-size:14px;letter-spacing:-.03em;color:#16173d}
+body:not(.nav) #limit{bottom:calc(var(--sb) + 70px)}
+#speed.over b{color:var(--err)}
 </style>
 </head>
 <body>
@@ -239,16 +289,19 @@ body.guide #then{display:none}
 </div>
 
 <!-- navigatie -->
+<!-- één dynamische balk: afslag altijd, rijstroken/bord en melding alleen als het nodig is -->
 <div id="banner" hidden>
-  <div class="ic" id="bicon"></div>
-  <div style="min-width:0;flex:1">
-    <div id="bdist">–</div>
-    <div id="btext">Route berekenen…</div>
-    <div id="broad"></div>
+  <div class="brow">
+    <div class="ic" id="bicon"></div>
+    <div class="btx">
+      <div class="bline"><span id="bdist">–</span><span id="btext">Route berekenen…</span></div>
+      <div id="broad"></div>
+    </div>
+    <div id="then" hidden><span id="thenic"></span><small>daarna</small></div>
   </div>
+  <div id="guide" hidden></div>
+  <div id="balert" hidden><div class="ai" id="baicon"></div><div class="atx"><b id="batitle"></b><span id="batext"></span></div></div>
 </div>
-<div id="guide" hidden></div>
-<div id="then" hidden><span>Daarna</span><span id="thenic"></span></div>
 <div id="navbar" hidden>
   <div class="eta"><b class="arr" id="eta">--:--</b><span id="remt">– min</span><span id="remd">– km</span></div>
   <button class="circle" id="navmute" aria-label="Stem aan/uit"></button>

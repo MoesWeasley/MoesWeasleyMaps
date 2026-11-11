@@ -156,7 +156,18 @@
     });
     /* tijd per meter langs de route, voor de resterende reistijd */
     var durTotal = osrm.duration || steps.reduce(function (a, s) { return a + s.dur; }, 0);
-    return { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, raw: osrm };
+    /* maximumsnelheid per stukje weg (OSRM annotations=maxspeed, over de overzichtslijn) */
+    var ms = null, og = osrm.geometry && osrm.geometry.coordinates;
+    if (og && og.length > 1) {
+      var sp = [];
+      legs.forEach(function (leg) { ((leg.annotation && leg.annotation.maxspeed) || []).forEach(function (m) {
+        sp.push(m && m.speed ? (m.unit === "mph" ? Math.round(m.speed * 1.609) : m.speed) : null); }); });
+      if (sp.length === og.length - 1 && sp.some(function (x) { return x; })) {
+        var oc = [0]; for (var k = 1; k < og.length; k++) oc.push(oc[k - 1] + distM(og[k - 1][1], og[k - 1][0], og[k][1], og[k][0]));
+        ms = { cum: oc, sp: sp };
+      }
+    }
+    return { coords: coords, cum: cum, steps: steps, distance: total || osrm.distance || 0, duration: durTotal, ms: ms, raw: osrm };
   }
 
   /* resterende tijd: som van de stappen vanaf positie, deelstap naar verhouding */
@@ -211,6 +222,15 @@
     while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (cum[mid] <= along) lo = mid; else hi = mid; }
     var seg = cum[hi] - cum[lo], t = seg ? (along - cum[lo]) / seg : 0;
     return { lat: c[lo][1] + (c[hi][1] - c[lo][1]) * t, lon: c[lo][0] + (c[hi][0] - c[lo][0]) * t };
+  }
+
+  /* maximumsnelheid op een afstand langs de route (null = onbekend) */
+  function speedAt(route, along) {
+    var m = route.ms; if (!m) return null;
+    var lo = 0, hi = m.cum.length - 1;
+    if (along >= m.cum[hi]) return m.sp[m.sp.length - 1];
+    while (hi - lo > 1) { var mid = (lo + hi) >> 1; if (m.cum[mid] <= along) lo = mid; else hi = mid; }
+    return m.sp[Math.min(lo, m.sp.length - 1)];
   }
 
   /* bord: "A4: Den Haag, Leiden" -> { refs: ["A4"], places: ["Den Haag", "Leiden"] } */
@@ -300,7 +320,7 @@
     distM: distM, bearing: bearing, angleDiff: angleDiff, instruction: instruction,
     fmtDist: fmtDist, sayDist: sayDist, fmtDur: fmtDur, roundDist: roundDist,
     buildRoute: buildRoute, remainingTime: remainingTime, locate: locate,
-    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree
+    nextStepIndex: nextStepIndex, pointAt: pointAt, parseSign: parseSign, speedAt: speedAt, thresholds: thresholds, pointsOnRoute: pointsOnRoute, aheadFree: aheadFree
   };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.NavCore = api;
 })(this);
