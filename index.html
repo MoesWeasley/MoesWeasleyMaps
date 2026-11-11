@@ -207,6 +207,16 @@ body:not(.nav) #alert{top:calc(var(--st) + 80px)}
 .sarrow{width:26px;height:26px;margin-left:auto}
 .place{font-size:20px;font-weight:700;letter-spacing:.01em;line-height:1.25}
 body.guide #then{display:none}
+/* aankomst en rijmodus: zachte overgangen */
+#banner,#navbar{transition:opacity .45s ease,transform .45s ease,background .6s ease}
+#banner.leaving{opacity:0;transform:translateY(-16px) scale(.97)}
+#navbar.leaving{opacity:0;transform:translateY(24px)}
+#banner.arrived{background:linear-gradient(120deg,rgba(20,195,142,.66),rgba(47,155,255,.58) 60%,rgba(123,92,255,.55))}
+#banner.arrived #bdist{font-size:24px}
+#top.entering{animation:topin .5s ease-out}
+@keyframes topin{from{opacity:0;transform:translateY(-14px)}}
+body.drive #street{bottom:calc(var(--sb) + 28px)}
+body.drive #limit{bottom:calc(var(--sb) + 70px)}
 /* glazen pijl */
 .me,#navarrow{border-radius:50%;background:radial-gradient(circle at 50% 30%,rgba(255,255,255,.65),rgba(255,255,255,.22) 70%);
   -webkit-backdrop-filter:blur(10px) saturate(200%);backdrop-filter:blur(10px) saturate(200%);
