@@ -715,7 +715,7 @@ function origin() {
 }
 function fetchRoutes(from, to, heading) {
   var path = from.lon.toFixed(6) + "," + from.lat.toFixed(6) + ";" + to.lon.toFixed(6) + "," + to.lat.toFixed(6);
-  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=3&continue_straight=true&annotations=maxspeed";
+  var qs = "?overview=full&geometries=geojson&steps=true&alternatives=3&continue_straight=true";  /* OSRM kent geen maxspeed-annotatie: die zou het hele verzoek laten mislukken */
   if (heading != null && st.speed > 3) qs += "&bearings=" + Math.round(heading) + ",60;&radiuses=60;unlimited";
   return firstOk((CFG.routers || []).map(function (b) { return b + path + qs; }), 15000).then(function (d) {
     if (d.code !== "Ok" || !d.routes || !d.routes.length) throw new Error(d.message || "geen route");
