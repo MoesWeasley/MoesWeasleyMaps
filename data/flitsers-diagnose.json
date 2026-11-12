@@ -1,0 +1,13 @@
+{
+ "updated": 1794456695,
+ "log": [
+  "https://overpass-api.de/api/interpreter: ok in 55s, 14157 elementen"
+ ],
+ "resultaat": "ok",
+ "flitsers": 2575,
+ "per_soort": {
+  "vast": 2157,
+  "roodlicht": 418
+ },
+ "trajectcontroles": 187
+}
