@@ -1,16 +1,13 @@
 {
- "updated": 1794543994,
+ "updated": 1794629269,
  "log": [
-  "https://overpass-api.de/api/interpreter poging 1: URLError: <urlopen error [Errno 101] Network is unreachable> (268s)",
-  "https://overpass-api.de/api/interpreter poging 2: URLError: <urlopen error [Errno 101] Network is unreachable> (268s)",
-  "https://overpass.private.coffee/api/interpreter poging 1: TimeoutError: The read operation timed out (241s)",
-  "https://overpass.private.coffee/api/interpreter: ok in 138s, 13946 elementen"
+  "https://overpass-api.de/api/interpreter: ok in 67s, 14150 elementen"
  ],
  "resultaat": "ok",
- "flitsers": 2541,
+ "flitsers": 2575,
  "per_soort": {
-  "vast": 2128,
-  "roodlicht": 413
+  "vast": 2157,
+  "roodlicht": 418
  },
- "trajectcontroles": 174
+ "trajectcontroles": 187
 }
