@@ -1,7 +1,7 @@
 {
- "updated": 1794629269,
+ "updated": 1794715769,
  "log": [
-  "https://overpass-api.de/api/interpreter: ok in 67s, 14150 elementen"
+  "https://overpass-api.de/api/interpreter: ok in 64s, 14150 elementen"
  ],
  "resultaat": "ok",
  "flitsers": 2575,
