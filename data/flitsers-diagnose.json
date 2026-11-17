@@ -1,8 +1,7 @@
 {
- "updated": 1794804734,
+ "updated": 1794888644,
  "log": [
-  "https://overpass-api.de/api/interpreter poging 1: HTTPError: HTTP Error 502: Bad Gateway (1s)",
-  "https://overpass-api.de/api/interpreter: ok in 63s, 14149 elementen"
+  "https://overpass-api.de/api/interpreter: ok in 49s, 14149 elementen"
  ],
  "resultaat": "ok",
  "flitsers": 2574,
