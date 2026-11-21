@@ -1,44 +1,44 @@
 {
- "updated": 1795261755,
+ "updated": 1795265839,
  "bronnen": {
   "veiligheidsgerelateerde_informatie_srti": {
-   "records": 157,
-   "met_locatie": 157,
+   "records": 172,
+   "met_locatie": 172,
    "types": {
-    "GeneralObstruction": 21,
-    "VehicleObstruction": 123,
-    "Accident": 13
+    "GeneralObstruction": 29,
+    "Accident": 16,
+    "VehicleObstruction": 127
    },
-   "bytes": 431164,
+   "bytes": 476934,
    "met_locatie_per_type": {
-    "GeneralObstruction": 21,
-    "VehicleObstruction": 123,
-    "Accident": 13
+    "GeneralObstruction": 29,
+    "Accident": 16,
+    "VehicleObstruction": 127
    }
   },
   "actueel_beeld": {
-   "records": 1180,
-   "met_locatie": 1169,
+   "records": 1189,
+   "met_locatie": 1178,
    "types": {
-    "RoadOrCarriagewayOrLaneManagement": 835,
-    "AbnormalTraffic": 5,
-    "VehicleObstruction": 123,
-    "SpeedManagement": 102,
+    "RoadOrCarriagewayOrLaneManagement": 837,
+    "VehicleObstruction": 127,
+    "SpeedManagement": 101,
+    "GeneralObstruction": 29,
     "ReroutingManagement": 69,
-    "GeneralNetworkManagement": 12,
-    "Accident": 13,
-    "GeneralObstruction": 21
+    "Accident": 16,
+    "GeneralNetworkManagement": 7,
+    "AbnormalTraffic": 3
    },
-   "bytes": 3740029,
+   "bytes": 3775007,
    "met_locatie_per_type": {
-    "RoadOrCarriagewayOrLaneManagement": 824,
-    "AbnormalTraffic": 5,
-    "VehicleObstruction": 123,
-    "SpeedManagement": 102,
+    "RoadOrCarriagewayOrLaneManagement": 826,
+    "VehicleObstruction": 127,
+    "SpeedManagement": 101,
+    "GeneralObstruction": 29,
     "ReroutingManagement": 69,
-    "GeneralNetworkManagement": 12,
-    "Accident": 13,
-    "GeneralObstruction": 21
+    "Accident": 16,
+    "GeneralNetworkManagement": 7,
+    "AbnormalTraffic": 3
    },
    "voorbeeld_zonder_locatie": {
     "RoadOrCarriagewayOrLaneManagement": [
@@ -81,18 +81,18 @@
    }
   },
   "tijdelijke_verkeersmaatregelen_afsluitingen": {
-   "records": 745,
-   "met_locatie": 734,
+   "records": 741,
+   "met_locatie": 730,
    "types": {
-    "RoadOrCarriagewayOrLaneManagement": 664,
+    "RoadOrCarriagewayOrLaneManagement": 665,
     "ReroutingManagement": 69,
-    "GeneralNetworkManagement": 12
+    "GeneralNetworkManagement": 7
    },
-   "bytes": 2282900,
+   "bytes": 2279376,
    "met_locatie_per_type": {
-    "RoadOrCarriagewayOrLaneManagement": 653,
+    "RoadOrCarriagewayOrLaneManagement": 654,
     "ReroutingManagement": 69,
-    "GeneralNetworkManagement": 12
+    "GeneralNetworkManagement": 7
    },
    "voorbeeld_zonder_locatie": {
     "RoadOrCarriagewayOrLaneManagement": [
