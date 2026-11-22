@@ -1,5 +1,5 @@
 {
- "updated": 1795316101,
+ "updated": 1795319834,
  "bronnen": {
   "veiligheidsgerelateerde_informatie_srti": {
    "records": 48,
@@ -9,7 +9,7 @@
     "WeatherRelatedRoadConditions": 2,
     "GeneralObstruction": 1
    },
-   "bytes": 121847,
+   "bytes": 122445,
    "met_locatie_per_type": {
     "VehicleObstruction": 45,
     "GeneralObstruction": 1
@@ -46,25 +46,25 @@
    }
   },
   "actueel_beeld": {
-   "records": 992,
-   "met_locatie": 981,
+   "records": 994,
+   "met_locatie": 983,
    "types": {
-    "RoadOrCarriagewayOrLaneManagement": 770,
+    "RoadOrCarriagewayOrLaneManagement": 771,
     "SpeedManagement": 104,
     "VehicleObstruction": 45,
     "ReroutingManagement": 68,
-    "GeneralNetworkManagement": 1,
-    "GeneralObstruction": 1,
     "PoorEnvironmentConditions": 1,
-    "WeatherRelatedRoadConditions": 2
+    "WeatherRelatedRoadConditions": 2,
+    "GeneralNetworkManagement": 2,
+    "GeneralObstruction": 1
    },
-   "bytes": 3168659,
+   "bytes": 3173164,
    "met_locatie_per_type": {
-    "RoadOrCarriagewayOrLaneManagement": 762,
+    "RoadOrCarriagewayOrLaneManagement": 763,
     "SpeedManagement": 104,
     "VehicleObstruction": 45,
     "ReroutingManagement": 68,
-    "GeneralNetworkManagement": 1,
+    "GeneralNetworkManagement": 2,
     "GeneralObstruction": 1
    },
    "voorbeeld_zonder_locatie": {
@@ -165,18 +165,18 @@
    }
   },
   "tijdelijke_verkeersmaatregelen_afsluitingen": {
-   "records": 704,
-   "met_locatie": 696,
+   "records": 706,
+   "met_locatie": 698,
    "types": {
-    "RoadOrCarriagewayOrLaneManagement": 635,
+    "RoadOrCarriagewayOrLaneManagement": 636,
     "ReroutingManagement": 68,
-    "GeneralNetworkManagement": 1
+    "GeneralNetworkManagement": 2
    },
-   "bytes": 2161847,
+   "bytes": 2165772,
    "met_locatie_per_type": {
-    "RoadOrCarriagewayOrLaneManagement": 627,
+    "RoadOrCarriagewayOrLaneManagement": 628,
     "ReroutingManagement": 68,
-    "GeneralNetworkManagement": 1
+    "GeneralNetworkManagement": 2
    },
    "voorbeeld_zonder_locatie": {
     "RoadOrCarriagewayOrLaneManagement": [
